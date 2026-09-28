@@ -293,22 +293,21 @@ jobs:
 
       - name: Build installer (Windows)
         if: matrix.installer == 'inno'
-        uses: jrsoftware/ise-setup@v0.1
+        uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
         with:
-          version: latest
-          architecture: x64
-          sign: false
-          commands: installer/Sheas-Cealer.iss /DMyAppVersion=${{ steps.version.outputs.version }} /DMyAppArch=${{ matrix.inno-arch }}
+          path: installer/Sheas-Cealer.iss
+          options: /DMyAppVersion=${{ steps.version.outputs.version }} /DMyAppArch=${{ matrix.inno-arch }}
+          install_latest: true
 
       - name: Rename Windows installer
         if: matrix.installer == 'inno'
         shell: pwsh
         run: |
-          $src = "installer\Sheas-Cealer-Nix-Setup-${{ steps.version.outputs.version }}-${{ matrix.inno-arch }}.exe"
+          $src = "out\installer\Sheas-Cealer-Nix-Setup-${{ steps.version.outputs.version }}-${{ matrix.inno-arch }}.exe"
           $dst = "Sheas-Cealer-Nix-Setup-${{ steps.version.outputs.version }}-${{ matrix.rid }}.exe"
           if (-not (Test-Path $src)) {
             Write-Host "::error::installer not found: $src"
-            Get-ChildItem installer -Recurse
+            Get-ChildItem out\installer -Recurse -ErrorAction SilentlyContinue
             exit 1
           }
           Move-Item $src $dst -Force

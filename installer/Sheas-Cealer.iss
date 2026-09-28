@@ -3,8 +3,8 @@
 ; 版本号与架构由 CI 注入：
 ;   /DMyAppVersion=1.0.0 /DMyAppArch=x64compatible
 ;
-; 注意：OutputDir 故意不设置，Inno 默认把安装包输出到脚本所在目录（installer\），
-; 这样无论 ISCC 的工作目录是什么都不会跑偏。
+; 输出到 out\installer\（相对脚本目录），CI 从这里取产物。
+OutputDir=..\out\installer
 
 #define MyAppName "Sheas Cealer Nix"
 #define MyAppVersion "0.0.1"
