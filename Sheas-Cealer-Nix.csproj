@@ -1,0 +1,174 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Title>Sheas Cealer Nix</Title>
+    <Product>Sheas Cealer Nix</Product>
+    <Trademark>Sheas Cealer Nix</Trademark>
+    <Description>Just Ceal It</Description>
+    <PackageReleaseNotes>Just Ceal It</PackageReleaseNotes>
+    <Authors>Space Time</Authors>
+    <Company>Space Time</Company>
+    <AssemblyVersion>0.0.1</AssemblyVersion>
+    <Version>0.0.1</Version>
+    <FileVersion>0.0.1</FileVersion>
+    <InformationalVersion>0.0.1</InformationalVersion>
+    <PackageTags>Tool;Sheas;Cealer;Nix;Sni</PackageTags>
+    <ApplicationIcon>Sheas-Cealer-Nix-Logo.ico</ApplicationIcon>
+    <PackageIcon>Sheas Cealer Logo.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageProjectUrl>https://github.com/Project-SheasCealerNix/Sheas-Cealer-Nix</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Project-SheasCealerNix/Sheas-Cealer-Nix</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <Copyright>Copyright © 2077</Copyright>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RollForward>LatestMajor</RollForward>
+    <RootNamespace>Sheas_Cealer_Nix</RootNamespace>
+    <Nullable>enable</Nullable>
+    <IsPublishable>True</IsPublishable>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+    <CheckForOverflowUnderflow>True</CheckForOverflowUnderflow>
+    <ErrorReport>none</ErrorReport>
+    <NoWin32Manifest>true</NoWin32Manifest>
+    <AppDesignerFolder>Props</AppDesignerFolder>
+    <NeutralLanguage>en</NeutralLanguage>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 测试要访问 GUI 项目的 internal 成员（AgentClient 等）。必须是程序集简单名，不是命名空间。 -->
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>Sheas-Cealer-Nix.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <PropertyGroup Label="Avalonia">
+    <AvaloniaUseCompiledBindingsByDefault>True</AvaloniaUseCompiledBindingsByDefault>
+    <AvaloniaXamlIlDebuggerLaunch>True</AvaloniaXamlIlDebuggerLaunch>
+    <AvaloniaXamlVerboseExceptions>True</AvaloniaXamlVerboseExceptions>
+    <AvaloniaNameGeneratorViewFileNamingStrategy>ClassName</AvaloniaNameGeneratorViewFileNamingStrategy>
+    <AvaloniaNameGeneratorDefaultFieldModifier>Private</AvaloniaNameGeneratorDefaultFieldModifier>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="bin\**" />
+    <EmbeddedResource Remove="bin\**" />
+    <None Remove="bin\**" />
+    <Page Remove="bin\**" />
+    <!-- 必须也排除 obj\**：SDK 默认 glob 是 **\*.cs，不会排除同目录下的兄弟项目
+         （Cealing-Core / Cealing-Agent / Sheas-Cealer-Nix.Tests），它们的 obj 里生成的
+         AssemblyInfo.cs / .AssemblyAttributes.cs 会被编进本项目，报 CS0579 特性重复；
+         测试项目的 obj 里 xunit 生成的文件还会带 [Xunit.CollectionBehavior]，报 CS0246 找不到 Xunit。 -->
+    <Compile Remove="obj\**" />
+    <EmbeddedResource Remove="obj\**" />
+    <None Remove="obj\**" />
+    <Page Remove="obj\**" />
+    <Compile Remove="Cealing-Core\**" />
+    <Compile Remove="Cealing-Agent\**" />
+    <Compile Remove="Sheas-Cealer-Nix.Tests\**" />
+    <!-- out\ 是发布/打包产物目录（publish-windows、安装包解压出来的副本、临时探针工程）。
+         它在本项目根目录下，默认 Compile glob 会把里面的 .cs 和 obj 生成的 AssemblyInfo.cs
+         一起收进来，报 CS0579 特性重复。 -->
+    <Compile Remove="out\**" />
+    <None Remove="out\**" />
+    <Page Remove="out\**" />
+    <AvaloniaResource Remove="out\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove=".filenesting.json" />
+    <None Remove=".gitattributes" />
+    <None Remove=".gitignore" />
+    <None Remove="README.md" />
+    <None Remove="README_EN.md" />
+    <None Remove="Sheas-Cealer-Nix-Logo.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 托盘图标运行时用 avares://Sheas-Cealer-Nix/Sheas-Cealer-Nix-Logo.ico 读取，
+         必须登记成 AvaloniaResource；上面那行 None Remove 只是不让它当内容文件复制。 -->
+    <AvaloniaResource Include="Sheas-Cealer-Nix-Logo.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Cealing-Host-L.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Desktop" Version="11.2.8" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.2.8" />
+    <PackageReference Include="Avalonia.Diagnostics" Version="11.2.8" />
+    <PackageReference Include="Avalonia.Headless" Version="11.2.8" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.8" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="*" />
+    <PackageReference Include="MessageBox.Avalonia" Version="3.3.1.1" />
+    <PackageReference Include="NginxConfigParser" Version="*" />
+    <PackageReference Include="System.Configuration.ConfigurationManager" Version="*" />
+    <PackageReference Include="YamlDotNet" Version="*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- GUI 侧 AgentClient / ProxyController 用 Cealing-Core 的协议与配置类型。
+         注意：GUI 项目就在仓库根目录，Cealing-Core 是它的子目录，所以路径是 "Cealing-Core\..."，没有 ".."。
+         （计划里写的 "..\Cealing-Core\..." 是按 "GUI 在 Sheas-Cealer-Nix/ 子目录" 假设写的，本仓库不是这个布局。） -->
+    <ProjectReference Include="Cealing-Core\Cealing-Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="Consts\MainMultilangConst.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>MainMultilangConst.resx</DependentUpon>
+    </Compile>
+    <Compile Update="Consts\SettingsMultilangConst.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>SettingsMultilangConst.resx</DependentUpon>
+    </Compile>
+    <Compile Update="Consts\AboutMultilangConst.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>AboutMultilangConst.resx</DependentUpon>
+    </Compile>
+    <Compile Update="Props\Settings.Designer.cs">
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Update="Consts\MainMultilangConst.resx">
+      <Generator>PublicResXFileCodeGenerator</Generator>
+      <LastGenOutput>MainMultilangConst.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Consts\SettingsMultilangConst.resx">
+      <Generator>PublicResXFileCodeGenerator</Generator>
+      <LastGenOutput>SettingsMultilangConst.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Consts\AboutMultilangConst.resx">
+      <Generator>PublicResXFileCodeGenerator</Generator>
+      <LastGenOutput>AboutMultilangConst.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <None Update="Props\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+  </ItemGroup>
+
+  <Target Name="CompileStatusBarHelper" BeforeTargets="Build" Condition="$([MSBuild]::IsOSPlatform('OSX')) and Exists('$(MSBuildProjectDirectory)/build/StatusBarHelper.m')">
+    <Exec Command="clang -fobjc-arc -framework Cocoa -O2 &quot;$(MSBuildProjectDirectory)/build/StatusBarHelper.m&quot; -o &quot;$(TargetDir)StatusBarHelper&quot;" />
+    <Exec Command="chmod +x &quot;$(TargetDir)StatusBarHelper&quot;" />
+  </Target>
+
+  <Target Name="CompileStatusBarHelperToPublish" AfterTargets="Publish" Condition="$([MSBuild]::IsOSPlatform('OSX')) and Exists('$(MSBuildProjectDirectory)/build/StatusBarHelper.m')">
+    <Exec Command="clang -fobjc-arc -framework Cocoa -O2 &quot;$(MSBuildProjectDirectory)/build/StatusBarHelper.m&quot; -o &quot;$(PublishDir)StatusBarHelper&quot;" />
+    <Exec Command="chmod +x &quot;$(PublishDir)StatusBarHelper&quot;" />
+  </Target>
+
+</Project>

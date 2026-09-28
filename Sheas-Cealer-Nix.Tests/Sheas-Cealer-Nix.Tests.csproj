@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>Sheas_Cealer_Nix.Tests</RootNamespace>
+    <AssemblyName>Sheas-Cealer-Nix.Tests</AssemblyName>
+    <!-- 本机只装了 .NET 10 运行时（10.0.401 SDK），没有 8.0 运行时。
+         计划全程用 net8.0 对齐 GUI 项目，这里允许向上滚动到已安装的 10.x 才能跑测试。 -->
+    <RollForward>LatestMajor</RollForward>
+    <!-- 测试覆盖的是 Unix 独有的 agent（Unix domain socket / UnixFileMode），
+         标记测试程序集同样不支持 Windows，避免 CA1416 噪音。 -->
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Cealing-Core\Cealing-Core.csproj" />
+    <ProjectReference Include="..\Cealing-Agent\Cealing-Agent.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- GUI 项目因 Themes/Button.axaml 的既有 XAML 错误无法构建（见 Task 0 实测基线），
+         所以不能 ProjectReference 它。PrivilegeEscalator 是纯 BCL、零 GUI 依赖，
+         直接把源文件编进测试程序集来测；AgentClient 会拖入 MainConst，暂不编入。 -->
+    <Compile Include="..\Utils\PrivilegeEscalator.cs" Link="GuiSource\PrivilegeEscalator.cs" />
+    <Compile Include="..\Utils\AgentClient.cs" Link="GuiSource\AgentClient.cs" />
+    <Compile Include="..\Utils\UserTrust.cs" Link="GuiSource\UserTrust.cs" />
+    <Compile Include="..\Utils\ProxyController.cs" Link="GuiSource\ProxyController.cs" />
+    <Compile Include="..\Utils\DataMigration.cs" Link="GuiSource\DataMigration.cs" />
+    <Compile Include="..\Utils\Http.cs" Link="GuiSource\Http.cs" />
+    <Compile Include="..\Utils\LogTail.cs" Link="GuiSource\LogTail.cs" />
+    <Compile Include="..\Utils\MihomoDownloader.cs" Link="GuiSource\MihomoDownloader.cs" />
+    <Compile Include="..\Consts\MainConst.cs" Link="GuiSource\MainConst.cs" />
+    <Compile Include="..\Consts\MainMultilangConst.Designer.cs" Link="GuiSource\MainMultilangConst.Designer.cs" />
+  </ItemGroup>
+
+</Project>

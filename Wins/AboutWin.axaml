@@ -1,0 +1,80 @@
+﻿<Window x:Class="Sheas_Cealer_Nix.Wins.AboutWin"
+        x:DataType="preses:AboutPres"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:consts="clr-namespace:Sheas_Cealer_Nix.Consts"
+        xmlns:convs="clr-namespace:Sheas_Cealer_Nix.Convs"
+        xmlns:preses="clr-namespace:Sheas_Cealer_Nix.Preses"
+        mc:Ignorable="d"
+        WindowStartupLocation="CenterScreen" CanResize="False" SizeToContent="Height" Width="500"
+        Loaded="AboutWin_Loaded" KeyDown="AboutWin_KeyDown">
+    <Grid Margin="16,14">
+        <Border Classes="card">
+            <StackPanel Spacing="10">
+                <TextBlock Classes="sectionLabel" Text="{x:Static consts:AboutConst.ProjectSectionLabel}" Margin="2,0,0,0" />
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1.2*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Button x:Name="DeveloperButton"
+                            Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,0,5,0"
+                            Classes="link"
+                            Content="{x:Static consts:AboutConst.DeveloperButtonContent}"
+                            ToolTip.Tip="{x:Static consts:AboutConst.DeveloperButtonUrl}"
+                            Click="AboutButton_Click" />
+                    <Button x:Name="VersionButton"
+                            Grid.Row="1" Grid.Column="0" Margin="0,5,5,0"
+                            Classes="link"
+                            ToolTip.Tip="{x:Static consts:AboutConst.VersionButtonUrl}"
+                            Click="AboutButton_Click">
+                        <Button.Content>
+                            <MultiBinding Converter="{x:Static convs:AboutConv.AboutVersionButtonContentConv}">
+                                <Binding Source="{x:Static consts:AboutConst.VersionButtonLabelContent}" />
+                                <Binding Source="{x:Static consts:AboutConst.VersionButtonVersionContent}" />
+                                <Binding Path="IsSheasCealerUtd" />
+                            </MultiBinding>
+                        </Button.Content>
+                    </Button>
+                    <Button x:Name="EmailButton"
+                            Grid.Row="1" Grid.Column="1" Margin="5,5,5,0"
+                            Classes="secondary"
+                            Content="{x:Static consts:AboutConst.EmailButtonContent}"
+                            ToolTip.Tip="{x:Static consts:AboutConst.EmailButtonUrl}"
+                            Click="AboutButton_Click" />
+
+                    <Button x:Name="DocumentationButton"
+                            Grid.Row="0" Grid.Column="2" Margin="5,0" Classes="secondary"
+                            Content="{x:Static consts:AboutConst.DocumentationButtonContent}"
+                            ToolTip.Tip="{x:Static consts:AboutConst.DocumentationButtonUrl}"
+                            Click="AboutButton_Click" />
+                    <Button x:Name="RepositoryButton"
+                            Grid.Row="1" Grid.Column="2" Margin="5,5,5,0" Classes="secondary"
+                            Content="{x:Static consts:AboutConst.RepositoryButtonContent}"
+                            ToolTip.Tip="{x:Static consts:AboutConst.RepositoryButtonUrl}"
+                            Click="AboutButton_Click" />
+
+                    <Button x:Name="PolicyButton"
+                            Grid.Row="0" Grid.Column="3" Margin="5,0,0,0" Classes="secondary"
+                            Content="{x:Static consts:AboutConst.PolicyButtonContent}"
+                            ToolTip.Tip="{x:Static consts:AboutConst.PolicyButtonUrl}"
+                            Click="AboutButton_Click" />
+                    <Button x:Name="AgreementButton"
+                            Grid.Row="1" Grid.Column="3" Margin="5,5,0,0" Classes="secondary"
+                            Content="{x:Static consts:AboutConst.AgreementButtonContent}"
+                            ToolTip.Tip="{x:Static consts:AboutConst.AgreementButtonUrl}"
+                            Click="AboutButton_Click" />
+                </Grid>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

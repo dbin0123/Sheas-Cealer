@@ -1,0 +1,384 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="AboutButtonContent" xml:space="preserve">
+    <value>关于项目</value>
+  </data>
+  <data name="AboutButtonToolTip" xml:space="preserve">
+    <value>点击打开关于窗口</value>
+  </data>
+  <data name="BrowserButtonContent" xml:space="preserve">
+    <value>启动伪造</value>
+  </data>
+  <data name="BrowserButtonToolTip" xml:space="preserve">
+    <value>点击启动参数注入完成的浏览器</value>
+  </data>
+  <data name="ComihomoButtonIsInitingContent" xml:space="preserve">
+    <value>全局净化调整中</value>
+  </data>
+  <data name="ConginxButtonIsInitingContent" xml:space="preserve">
+    <value>全局伪造启动中</value>
+  </data>
+  <data name="EditHostsConfButtonContent" xml:space="preserve">
+    <value>编辑 Hosts 配置</value>
+  </data>
+  <data name="EditHostsConfButtonToolTip" xml:space="preserve">
+    <value>点击编辑 Hosts 配置</value>
+  </data>
+  <data name="EditLocalHostButtonContent" xml:space="preserve">
+    <value>编辑本地规则</value>
+  </data>
+  <data name="EditLocalHostButtonToolTip" xml:space="preserve">
+    <value>点击编辑本地规则</value>
+  </data>
+  <data name="EditMihomoConfButtonContent" xml:space="preserve">
+    <value>编辑 Mihomo 配置</value>
+  </data>
+  <data name="EditMihomoConfButtonToolTip" xml:space="preserve">
+    <value>点击编辑 Mihomo 配置</value>
+  </data>
+  <data name="EditNginxConfButtonContent" xml:space="preserve">
+    <value>编辑 Nginx 配置</value>
+  </data>
+  <data name="EditNginxConfButtonToolTip" xml:space="preserve">
+    <value>点击编辑 Nginx 配置</value>
+  </data>
+  <data name="EditUpstreamHostButtonContent" xml:space="preserve">
+    <value>编辑上游规则</value>
+  </data>
+  <data name="EditUpstreamHostButtonToolTip" xml:space="preserve">
+    <value>点击编辑上游规则</value>
+  </data>
+  <data name="MihomoButtonIsInitingContent" xml:space="preserve">
+    <value>全局净化启动中</value>
+  </data>
+  <data name="MihomoButtonIsRunningContent" xml:space="preserve">
+    <value>停止全局净化</value>
+  </data>
+  <data name="MihomoButtonIsRunningToolTip" xml:space="preserve">
+    <value>点击停止本地 Mihomo</value>
+  </data>
+  <data name="MihomoButtonIsStoppedContent" xml:space="preserve">
+    <value>启动全局净化</value>
+  </data>
+  <data name="MihomoButtonIsStoppedToolTip" xml:space="preserve">
+    <value>点击启动本地 Mihomo</value>
+  </data>
+  <data name="MihomoButtonIsStoppingContent" xml:space="preserve">
+    <value>全局净化停止中</value>
+  </data>
+  <data name="NginxButtonIsInitingContent" xml:space="preserve">
+    <value>全局伪造启动中</value>
+  </data>
+  <data name="NginxButtonIsRunningContent" xml:space="preserve">
+    <value>停止全局伪造</value>
+  </data>
+  <data name="NginxButtonIsRunningToolTip" xml:space="preserve">
+    <value>点击停止 Nginx</value>
+  </data>
+  <data name="NginxButtonIsStoppedContent" xml:space="preserve">
+    <value>启动全局伪造</value>
+  </data>
+  <data name="NginxButtonIsStoppedToolTip" xml:space="preserve">
+    <value>点击启动本地 Nginx</value>
+  </data>
+  <data name="NginxEngineAutoExternalContent" xml:space="preserve">
+    <value>自动（系统 nginx：{0}）</value>
+  </data>
+  <data name="NginxEngineAutoBuiltinContent" xml:space="preserve">
+    <value>自动（内置）</value>
+  </data>
+  <data name="NginxEngineExternalFoundContent" xml:space="preserve">
+    <value>外部 nginx（{0}）</value>
+  </data>
+  <data name="NginxEngineExternalMissingContent" xml:space="preserve">
+    <value>外部 nginx（未找到）</value>
+  </data>
+  <data name="NginxEngineBuiltinContent" xml:space="preserve">
+    <value>内置（.NET）</value>
+  </data>
+  <data name="NoClickButtonIsFlashingContent" xml:space="preserve">
+    <value>赶紧点我</value>
+  </data>
+  <data name="NoClickButtonIsFlashingToolTip" xml:space="preserve">
+    <value>赶紧点击这个按钮</value>
+  </data>
+  <data name="NoClickButtonIsStoppedContent" xml:space="preserve">
+    <value>不要点我</value>
+  </data>
+  <data name="NoClickButtonIsStoppedToolTip" xml:space="preserve">
+    <value>不要点击这个按钮</value>
+  </data>
+  <data name="SettingsBoxBrowserPathToolTip" xml:space="preserve">
+    <value>填入任意以 Chromium 为内核的浏览器路径</value>
+  </data>
+  <data name="SettingsBoxExtraArgsToolTip" xml:space="preserve">
+    <value>填入任意额外的 Chromium 启动参数</value>
+  </data>
+  <data name="SettingsBoxNginxEngineToolTip" xml:space="preserve">
+    <value>选择反代引擎。自动模式优先使用系统 nginx，不存在时回退到内置引擎</value>
+  </data>
+  <data name="SettingsBoxUpstreamUrlToolTip" xml:space="preserve">
+    <value>填入任意上游规则链接</value>
+  </data>
+  <data name="SettingsButtonContent" xml:space="preserve">
+    <value>界面设置</value>
+  </data>
+  <data name="SettingsButtonToolTip" xml:space="preserve">
+    <value>点击打开设置窗口</value>
+  </data>
+  <data name="SettingsFunctionButtonBrowserPathContent" xml:space="preserve">
+    <value>浏览路径</value>
+  </data>
+  <data name="SettingsFunctionButtonExtraArgsContent" xml:space="preserve">
+    <value>清除参数</value>
+  </data>
+  <data name="SettingsFunctionButtonNginxEngineContent" xml:space="preserve">
+    <value>切换引擎</value>
+  </data>
+  <data name="SettingsFunctionButtonToolTip" xml:space="preserve">
+    <value>点击处理设置内容</value>
+  </data>
+  <data name="SettingsFunctionButtonUpstreamUrlContent" xml:space="preserve">
+    <value>重置链接</value>
+  </data>
+  <data name="SettingsModeButtonBrowserPathContent" xml:space="preserve">
+    <value>文件路径</value>
+  </data>
+  <data name="SettingsModeButtonExtraArgsContent" xml:space="preserve">
+    <value>额外参数</value>
+  </data>
+  <data name="SettingsModeButtonNginxEngineContent" xml:space="preserve">
+    <value>反代引擎</value>
+  </data>
+  <data name="SettingsModeButtonToolTip" xml:space="preserve">
+    <value>点击切换设置模式</value>
+  </data>
+  <data name="SettingsModeButtonUpstreamUrlContent" xml:space="preserve">
+    <value>上游链接</value>
+  </data>
+  <data name="UpdateUpstreamHostButtonContent" xml:space="preserve">
+    <value>更新上游规则</value>
+  </data>
+  <data name="UpdateUpstreamHostButtonToolTip" xml:space="preserve">
+    <value>点击更新上游规则</value>
+  </data>
+  <data name="_BrowserPathDialogFilterFileType" xml:space="preserve">
+    <value>浏览器</value>
+  </data>
+  <data name="_AgentLaunchPrompt" xml:space="preserve">
+    <value>全局伪造需要管理员权限。Sheas Cealer Nix 将在稍后请求一次管理员授权，本次会话内只会询问一次。</value>
+  </data>
+  <data name="_AgentUnavailablePrompt" xml:space="preserve">
+    <value>无法启动特权代理。全局伪造需要修改 hosts、安装根证书并监听 80/443 的权限。</value>
+  </data>
+  <data name="_CealHostErrorPrompt" xml:space="preserve">
+    <value>伪造规则含有语法错误，部分规则无法识别，是否仍然继续?</value>
+  </data>
+  <data name="_OpenConfAdminPrompt" xml:space="preserve">
+    <value>修改系统 hosts 文件需要管理员权限，正在通过 UAC 请求提权打开编辑器。</value>
+  </data>
+  <data name="_GameClickOnceMsg" xml:space="preserve">
+    <value>就知道你会点，但其实什么事情都不会发生的。嘻嘻~</value>
+  </data>
+  <data name="_GameClickThreeMsg" xml:space="preserve">
+    <value>呜，你在做什么。求求你不要再继续点了，我不想伤害大家。快停下，这是最后一次机会。呃，我快要控制不住了</value>
+  </data>
+  <data name="_GameClickTwiceMsg" xml:space="preserve">
+    <value>不不不，不要点我。对不起，我不该骗你的，我是一个受诅咒的按钮，继续点我会给整个 Sheas Cealer 带来灾难的。请相信我，这不是游戏，这里也没有新功能。听我的，去用正常的功能好吗，求求你了</value>
+  </data>
+  <data name="_GameEndingMsg" xml:space="preserve">
+    <value>你击败了邪恶的按钮，拯救了 Sheas Cealer，你是英雄!</value>
+  </data>
+  <data name="_GameGradeMsg" xml:space="preserve">
+    <value>按钮剩余血量:</value>
+  </data>
+  <data name="_GameReviewEndingMsg" xml:space="preserve">
+    <value>它死了，你是 Sheas Cealer 的英雄</value>
+  </data>
+  <data name="_GameStartMsg" xml:space="preserve">
+    <value>不，求你杀了我，我... 控制不住了...</value>
+  </data>
+  <data name="_KillBrowserProcessPrompt" xml:space="preserve">
+    <value>启动前将关闭所选浏览器的所有进程，是否继续？</value>
+  </data>
+  <data name="_LaunchHostsNginxPrompt" xml:space="preserve">
+    <value>正在使用基于 Hosts 的非泛域名全局伪造，是否继续?</value>
+  </data>
+  <data name="_LaunchMihomoErrorMsg" xml:space="preserve">
+    <value>Mihomo 启动失败</value>
+  </data>
+  <data name="_LaunchNginxErrorPrompt" xml:space="preserve">
+    <value>Nginx 启动失败，是否打开错误日志?</value>
+  </data>
+  <data name="_LaunchNginxFlashingPrompt" xml:space="preserve">
+    <value>Warning: 代理核心正在遭受攻击，无法伪造 SNI，已紧急开启 SNI 拔除模式，是否继续?</value>
+  </data>
+  <data name="_LaunchProxyPrompt" xml:space="preserve">
+    <value>使用完请务必记得回来手动关闭代理，是否继续?</value>
+  </data>
+  <data name="_MihomoConfErrorMsg" xml:space="preserve">
+    <value>Mihomo 配置文件含有语法错误，部分配置无法识别</value>
+  </data>
+  <data name="_MihomoMissingPrompt" xml:space="preserve">
+    <value>未找到 mihomo 可执行文件。请把 Cealing-Mihomo（或 Cealing-Comihomo）放到程序目录，或使用会退化为 hosts 模式的全局伪造</value>
+  </data>
+  <data name="_NoCealHostRulesPrompt" xml:space="preserve">
+    <value>没有找到可用的伪造规则，请先点「更新上游规则」，再重新启动全局伪造</value>
+  </data>
+  <data name="_NginxHttpPortOccupiedPrompt" xml:space="preserve">
+    <value>本地 80 端口被占用，是否换用 {0} 端口继续? 这可能导致 http 连接无法自动跳转到 https</value>
+  </data>
+  <data name="_NginxEngineMissingPrompt" xml:space="preserve">
+    <value>未找到可用的 nginx。请把反代引擎切换为内置，或在程序目录放置 nginx 可执行文件</value>
+  </data>
+  <data name="_NginxEngineRunningPrompt" xml:space="preserve">
+    <value>请先停止当前反代，再切换反代引擎</value>
+  </data>
+  <data name="_NginxHttpsPortOccupiedPrompt" xml:space="preserve">
+    <value>本地 443 端口被占用，是否换用 {0} 端口继续? 这可能导致全局伪造无法正常工作</value>
+  </data>
+  <data name="_OverrideUpstreamHostPrompt" xml:space="preserve">
+    <value>上游规则有更新可用，需要更新吗？否则只为你打开上游规则网页</value>
+  </data>
+  <data name="_UpdateUpstreamHostSuccessMsg" xml:space="preserve">
+    <value>更新已完成</value>
+  </data>
+  <data name="_UpstreamHostUtdMsg" xml:space="preserve">
+    <value>上游规则已经更到最新了</value>
+  </data>
+  <data name="RunSectionLabel" xml:space="preserve">
+    <value>运行</value>
+  </data>
+  <data name="ConfigSectionLabel" xml:space="preserve">
+    <value>规则</value>
+  </data>
+  <data name="ViewLogButtonContent" xml:space="preserve">
+    <value>查看日志</value>
+  </data>
+  <data name="ViewLogButtonToolTip" xml:space="preserve">
+    <value>查看全局伪造日志</value>
+  </data>
+  <data name="LogWinTitle" xml:space="preserve">
+    <value>全局伪造日志</value>
+  </data>
+  <data name="LogWinEmptyContent" xml:space="preserve">
+    <value>暂无日志，启动全局伪造后这里会显示 agent 日志</value>
+  </data>
+</root>

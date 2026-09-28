@@ -1,0 +1,215 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!--
+        按钮必须用 ControlTheme，不能用 <Style Selector="Button">。
+        FluentTheme 给 Button 提供了 ControlTheme，它的 setter 优先级高于普通 Style，
+        而且切换 RequestedThemeVariant 时普通 Style 里的 DynamicResource 不会重新解析，
+        结果就是深色模式下按钮还是浅色。ControlTheme 才是控件级换肤的正道。
+        Theme 不是继承属性，所以由 Controls.axaml 里的一条 Button 样式统一分发。
+
+        阴影只能落在模板里的 Border 上（Button 没有 BoxShadow 属性），而且不能在模板里
+        写成内联值，否则它是本地值，类选择器改不动，所以统一用 /template/ 样式下发。
+    -->
+    <ControlTheme x:Key="ScnButtonTheme" TargetType="Button">
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="9" />
+        <Setter Property="Padding" Value="14,9" />
+        <Setter Property="MinHeight" Value="38" />
+        <Setter Property="FontSize" Value="13.5" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.14" />
+                <BrushTransition Property="BorderBrush" Duration="0:0:0.14" />
+            </Transitions>
+        </Setter>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border x:Name="PART_Chrome"
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{TemplateBinding CornerRadius}"
+                        Padding="{TemplateBinding Padding}">
+                    <ContentPresenter x:Name="PART_ContentPresenter"
+                                      Content="{TemplateBinding Content}"
+                                      HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                      TextElement.Foreground="{TemplateBinding Foreground}"
+                                      TextElement.FontSize="{TemplateBinding FontSize}"
+                                      TextElement.FontWeight="{TemplateBinding FontWeight}" />
+                </Border>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^ /template/ Border#PART_Chrome">
+            <Setter Property="BoxShadow" Value="0 1 2 0 #12000000" />
+        </Style>
+        <Style Selector="^:pointerover /template/ Border#PART_Chrome">
+            <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource TextMutedBrush}" />
+        </Style>
+        <Style Selector="^:pressed /template/ Border#PART_Chrome">
+            <Setter Property="Background" Value="{DynamicResource SurfacePressedBrush}" />
+            <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
+        </Style>
+        <Style Selector="^:disabled">
+            <Setter Property="Opacity" Value="0.42" />
+            <Setter Property="Cursor" Value="Arrow" />
+        </Style>
+        <Style Selector="^:disabled /template/ Border#PART_Chrome">
+            <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
+        </Style>
+        <Style Selector="^:focus-visible /template/ Border#PART_Chrome">
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="BorderThickness" Value="2" />
+        </Style>
+
+        <!-- 主操作：渐变填充 + 抬升阴影 -->
+        <Style Selector="^.primary">
+            <Setter Property="Background" Value="{DynamicResource AccentFillBrush}" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}" />
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="MinHeight" Value="46" />
+            <Setter Property="CornerRadius" Value="11" />
+        </Style>
+        <Style Selector="^.primary /template/ Border#PART_Chrome">
+            <Setter Property="BoxShadow" Value="0 6 16 -4 #3D000000" />
+        </Style>
+        <Style Selector="^.primary:pointerover /template/ Border#PART_Chrome">
+            <Setter Property="Background" Value="{DynamicResource AccentFillHoverBrush}" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+        </Style>
+        <Style Selector="^.primary:pressed /template/ Border#PART_Chrome">
+            <Setter Property="Background" Value="{DynamicResource AccentFillPressedBrush}" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BoxShadow" Value="0 1 3 0 #26000000" />
+        </Style>
+        <Style Selector="^.primary:disabled /template/ Border#PART_Chrome">
+            <Setter Property="Background" Value="{DynamicResource AccentFillBrush}" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
+        </Style>
+
+        <!-- 次要操作：比卡片略深的填充，避免白底上白块 -->
+        <Style Selector="^.secondary">
+            <Setter Property="Background" Value="{DynamicResource SurfaceMutedBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+        </Style>
+
+        <!-- 文字按钮 -->
+        <Style Selector="^.link">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="^.link /template/ Border#PART_Chrome">
+            <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
+        </Style>
+        <Style Selector="^.link:pointerover /template/ Border#PART_Chrome">
+            <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+        </Style>
+        <Style Selector="^.link:disabled /template/ Border#PART_Chrome">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+        </Style>
+
+        <!-- 幽灵按钮 -->
+        <Style Selector="^.ghost">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+        <Style Selector="^.ghost /template/ Border#PART_Chrome">
+            <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
+        </Style>
+        <Style Selector="^.ghost:pointerover /template/ Border#PART_Chrome">
+            <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+        </Style>
+        <Style Selector="^.ghost:pointerover">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        </Style>
+        <Style Selector="^.ghost:disabled /template/ Border#PART_Chrome">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+        </Style>
+
+        <!-- 紧凑 -->
+        <Style Selector="^.compact">
+            <Setter Property="Padding" Value="12,7" />
+            <Setter Property="MinHeight" Value="34" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+        </Style>
+
+        <!-- 紧凑主操作：不复用通栏 .primary，避免变成一整条红板 -->
+        <Style Selector="^.cta">
+            <Setter Property="Background" Value="{DynamicResource AccentFillBrush}" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}" />
+            <Setter Property="FontSize" Value="13.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="MinHeight" Value="38" />
+            <Setter Property="CornerRadius" Value="9" />
+            <Setter Property="Padding" Value="20,0" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+        </Style>
+        <Style Selector="^.cta /template/ Border#PART_Chrome">
+            <Setter Property="BoxShadow" Value="0 4 12 -4 #4DE0342A" />
+        </Style>
+        <Style Selector="^.cta:pointerover /template/ Border#PART_Chrome">
+            <Setter Property="Background" Value="{DynamicResource AccentFillHoverBrush}" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+        </Style>
+        <Style Selector="^.cta:pressed /template/ Border#PART_Chrome">
+            <Setter Property="Background" Value="{DynamicResource AccentFillPressedBrush}" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BoxShadow" Value="0 1 3 0 #26000000" />
+        </Style>
+        <Style Selector="^.cta:disabled /template/ Border#PART_Chrome">
+            <Setter Property="Background" Value="{DynamicResource AccentFillBrush}" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
+        </Style>
+
+        <!-- 顶栏小控件 -->
+        <Style Selector="^.chip">
+            <Setter Property="Padding" Value="12,7" />
+            <Setter Property="MinHeight" Value="34" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceMutedBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+        </Style>
+
+        <!-- 规则区小按钮 -->
+        <Style Selector="^.tool">
+            <Setter Property="Padding" Value="12,6" />
+            <Setter Property="MinHeight" Value="32" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceMutedBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+        </Style>
+    </ControlTheme>
+
+</ResourceDictionary>

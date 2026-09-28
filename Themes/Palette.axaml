@@ -1,0 +1,78 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ResourceDictionary.ThemeDictionaries>
+
+        <ResourceDictionary x:Key="Light">
+            <LinearGradientBrush x:Key="AppBgBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+                <GradientStop Color="#F8F9FC" Offset="0" />
+                <GradientStop Color="#E9ECF3" Offset="1" />
+            </LinearGradientBrush>
+
+            <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="SurfaceMutedBrush" Color="#F2F4F8" />
+            <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#E7EBF2" />
+            <SolidColorBrush x:Key="SurfacePressedBrush" Color="#DBE0E9" />
+            <SolidColorBrush x:Key="BorderSoftBrush" Color="#E7EAF0" />
+            <SolidColorBrush x:Key="BorderBrush" Color="#D4D9E3" />
+
+            <SolidColorBrush x:Key="TextPrimaryBrush" Color="#15171C" />
+            <SolidColorBrush x:Key="TextSecondaryBrush" Color="#565E6C" />
+            <SolidColorBrush x:Key="TextMutedBrush" Color="#7C8494" />
+
+            <SolidColorBrush x:Key="AccentBrush" Color="#D93A2B" />
+            <LinearGradientBrush x:Key="AccentFillBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+                <GradientStop Color="#EE4B3C" Offset="0" />
+                <GradientStop Color="#D22C1E" Offset="1" />
+            </LinearGradientBrush>
+            <LinearGradientBrush x:Key="AccentFillHoverBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+                <GradientStop Color="#F25647" Offset="0" />
+                <GradientStop Color="#DE3628" Offset="1" />
+            </LinearGradientBrush>
+            <LinearGradientBrush x:Key="AccentFillPressedBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+                <GradientStop Color="#C62A1C" Offset="0" />
+                <GradientStop Color="#B82418" Offset="1" />
+            </LinearGradientBrush>
+            <SolidColorBrush x:Key="OnAccentBrush" Color="#FFFFFF" />
+
+            <SolidColorBrush x:Key="TextBoxBgBrush" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="TextControlPlaceholderForeground" Color="#7C8494" />
+        </ResourceDictionary>
+
+        <ResourceDictionary x:Key="Dark">
+            <LinearGradientBrush x:Key="AppBgBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+                <GradientStop Color="#141720" Offset="0" />
+                <GradientStop Color="#0A0B0E" Offset="1" />
+            </LinearGradientBrush>
+
+            <SolidColorBrush x:Key="SurfaceBrush" Color="#191D24" />
+            <SolidColorBrush x:Key="SurfaceMutedBrush" Color="#22272F" />
+            <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#2A303A" />
+            <SolidColorBrush x:Key="SurfacePressedBrush" Color="#333A45" />
+            <SolidColorBrush x:Key="BorderSoftBrush" Color="#232830" />
+            <SolidColorBrush x:Key="BorderBrush" Color="#323A47" />
+
+            <SolidColorBrush x:Key="TextPrimaryBrush" Color="#E8EBF1" />
+            <SolidColorBrush x:Key="TextSecondaryBrush" Color="#98A1AF" />
+            <SolidColorBrush x:Key="TextMutedBrush" Color="#6C7483" />
+
+            <SolidColorBrush x:Key="AccentBrush" Color="#F04A38" />
+            <LinearGradientBrush x:Key="AccentFillBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+                <GradientStop Color="#F65A48" Offset="0" />
+                <GradientStop Color="#D93726" Offset="1" />
+            </LinearGradientBrush>
+            <LinearGradientBrush x:Key="AccentFillHoverBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+                <GradientStop Color="#FF6A58" Offset="0" />
+                <GradientStop Color="#E94432" Offset="1" />
+            </LinearGradientBrush>
+            <LinearGradientBrush x:Key="AccentFillPressedBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+                <GradientStop Color="#C93022" Offset="0" />
+                <GradientStop Color="#B6291C" Offset="1" />
+            </LinearGradientBrush>
+            <SolidColorBrush x:Key="OnAccentBrush" Color="#FFFFFF" />
+
+            <SolidColorBrush x:Key="TextBoxBgBrush" Color="#12141A" />
+            <SolidColorBrush x:Key="TextControlPlaceholderForeground" Color="#6C7483" />
+        </ResourceDictionary>
+
+    </ResourceDictionary.ThemeDictionaries>
+</ResourceDictionary>

@@ -1,0 +1,241 @@
+﻿<Window x:Class="Sheas_Cealer_Nix.Wins.MainWin"
+        x:DataType="preses:MainPres"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:consts="clr-namespace:Sheas_Cealer_Nix.Consts"
+        xmlns:convs="clr-namespace:Sheas_Cealer_Nix.Convs"
+        xmlns:preses="clr-namespace:Sheas_Cealer_Nix.Preses"
+        mc:Ignorable="d"
+        DragDrop.AllowDrop="True"
+        WindowStartupLocation="CenterScreen" CanResize="False" SizeToContent="Height"
+        Width="708"
+        Loaded="MainWin_Loaded" Closing="MainWin_Closing" DragDrop.DragEnter="MainWin_DragEnter" DragDrop.Drop="MainWin_Drop" KeyDown="MainWin_KeyDown">
+    <Grid Margin="14,12,14,10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- 顶栏：模式 + 输入 + 功能 -->
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <Button Grid.Column="0" Classes="chip" Margin="0,0,7,0"
+                    Content="{Binding SettingsMode, Converter={x:Static convs:MainConv.MainSettingsModeButtonContentConv}}"
+                    ToolTip.Tip="{x:Static consts:MainConst.SettingsModeButtonToolTip}"
+                    Click="SettingsModeButton_Click" />
+            <TextBox x:Name="SettingsBox"
+                     Grid.Column="1" VerticalContentAlignment="Center" UseFloatingWatermark="True"
+                     AutomationProperties.Name="{Binding SettingsMode, Converter={x:Static convs:MainConv.MainSettingsBoxHintConv}}"
+                     Watermark="{Binding SettingsMode, Converter={x:Static convs:MainConv.MainSettingsBoxHintConv}}"
+                     ToolTip.Tip="{Binding SettingsMode, Converter={x:Static convs:MainConv.MainSettingsBoxToolTipConv}}"
+                     TextChanged="SettingsBox_TextChanged" DragDrop.DragOver="MainWin_DragEnter">
+                <TextBox.Text>
+                    <MultiBinding Mode="OneWay"
+                                  Converter="{x:Static convs:MainConv.MainSettingsBoxTextConv}">
+                        <Binding Path="SettingsMode" />
+                        <Binding Path="BrowserPath" />
+                        <Binding Path="UpstreamUrl" />
+                        <Binding Path="ExtraArgs" />
+                        <Binding Path="NginxEngineMode" />
+                        <Binding Path="ResolvedNginxPath" />
+                    </MultiBinding>
+                </TextBox.Text>
+            </TextBox>
+            <Button Grid.Column="2" Classes="chip" Margin="7,0,0,0"
+                    Content="{Binding SettingsMode, Converter={x:Static convs:MainConv.MainSettingsFunctionButtonContentConv}}"
+                    ToolTip.Tip="{x:Static consts:MainConst.SettingsFunctionButtonToolTip}"
+                    Click="SettingsFunctionButton_Click" />
+        </Grid>
+
+        <!-- 动作行：紧凑主按钮 + 引擎开关 + 状态灯 -->
+        <Grid Grid.Row="1" Margin="0,13,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Button x:Name="BrowserButton"
+                    IsDefault="True"
+                    Grid.Column="0" Margin="0,0,8,0" Classes="cta"
+                    ToolTip.Tip="{x:Static consts:MainConst.BrowserButtonToolTip}"
+                    Click="LaunchButton_Click">
+                <Button.IsEnabled>
+                    <MultiBinding Converter="{x:Static convs:MainConv.MainBrowserButtonIsEnabledConv}">
+                        <Binding Path="BrowserPath" />
+                        <Binding Path="ExtraArgs" />
+                    </MultiBinding>
+                </Button.IsEnabled>
+                <StackPanel Orientation="Horizontal" Spacing="9">
+                    <Path Width="13" Height="13" Stretch="Uniform"
+                          Fill="{DynamicResource OnAccentBrush}"
+                          Data="M8,5.5 L19,12 L8,18.5 Z" />
+                    <TextBlock Text="{x:Static consts:MainConst.BrowserButtonContent}"
+                               Foreground="{DynamicResource OnAccentBrush}"
+                               VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+
+            <Button x:Name="NginxButton"
+                    Grid.Column="1" Margin="0,0,7,0" Classes="tool"
+                    IsVisible="True"
+                    Click="LaunchButton_Click">
+                <Button.IsEnabled>
+                    <MultiBinding Converter="{x:Static convs:MainConv.MainNginxButtonIsEnabledConv}">
+                        <Binding Path="IsConginxExist" />
+                        <Binding Path="IsNginxExist" />
+                        <Binding Path="IsCoproxyIniting" />
+                        <Binding Path="IsNginxIniting" />
+                        <Binding Path="IsComihomoIniting" />
+                        <Binding Path="IsMihomoIniting" />
+                    </MultiBinding>
+                </Button.IsEnabled>
+                <Button.Content>
+                    <MultiBinding Converter="{x:Static convs:MainConv.MainNginxButtonContentConv}">
+                        <Binding Path="IsProxyRunning" />
+                        <Binding Path="IsNginxIniting" />
+                        <Binding Path="IsCoproxyIniting" />
+                        <Binding Path="ProxyEngineName" />
+                    </MultiBinding>
+                </Button.Content>
+                <ToolTip.Tip>
+                    <MultiBinding Converter="{x:Static convs:MainConv.MainNginxButtonToolTipConv}">
+                        <Binding Path="IsConginxRunning" />
+                        <Binding Path="IsNginxRunning" />
+                    </MultiBinding>
+                </ToolTip.Tip>
+            </Button>
+
+            <Button x:Name="MihomoButton"
+                    Grid.Column="2" Classes="tool"
+                    IsVisible="True"
+                    ToolTip.Tip="{Binding IsMihomoRunning, Converter={x:Static convs:MainConv.MainMihomoButtonToolTipConv}}"
+                    Click="LaunchButton_Click">
+                <Button.IsEnabled>
+                    <MultiBinding Converter="{x:Static convs:MainConv.MainMihomoButtonIsEnabledConv}">
+                        <Binding Path="IsComihomoExist" />
+                        <Binding Path="IsMihomoExist" />
+                        <Binding Path="IsCoproxyIniting" />
+                        <Binding Path="IsComihomoIniting" />
+                        <Binding Path="IsMihomoIniting" />
+                    </MultiBinding>
+                </Button.IsEnabled>
+                <Button.Content>
+                    <MultiBinding Converter="{x:Static convs:MainConv.MainMihomoButtonContentConv}">
+                        <Binding Path="IsMihomoRunning" />
+                        <Binding Path="IsComihomoIniting" />
+                        <Binding Path="IsMihomoIniting" />
+                        <Binding Path="IsCoproxyIniting" />
+                        <Binding Path="IsCoproxyStopping" />
+                    </MultiBinding>
+                </Button.Content>
+            </Button>
+
+        </Grid>
+
+        <!-- 规则 -->
+        <TextBlock Grid.Row="2" Classes="sectionLabel" Margin="2,16,0,8"
+                   Text="{x:Static consts:MainConst.ConfigSectionLabel}" />
+
+        <WrapPanel Grid.Row="3" Orientation="Horizontal">
+            <Button x:Name="EditLocalHostButton" Classes="tool" Margin="0,0,7,7"
+                    IsVisible="False"
+                    Content="{x:Static consts:MainConst.EditLocalHostButtonContent}"
+                    ToolTip.Tip="{x:Static consts:MainConst.EditLocalHostButtonToolTip}"
+                    Click="EditHostButton_Click" />
+            <Button Classes="tool" Margin="0,0,7,7"
+                    IsVisible="False"
+                    Content="{x:Static consts:MainConst.EditUpstreamHostButtonContent}"
+                    ToolTip.Tip="{x:Static consts:MainConst.EditUpstreamHostButtonToolTip}"
+                    Click="EditHostButton_Click" />
+            <Button Classes="tool" Margin="0,0,7,7"
+                    IsEnabled="{Binding UpstreamUrl, Converter={x:Static convs:MainConv.MainUpdateHostButtonIsEnabledConv}}"
+                    Content="{Binding IsUpstreamHostUtd, Converter={x:Static convs:MainConv.MainUpdateHostButtonContentConv}}"
+                    ToolTip.Tip="{x:Static consts:MainConst.UpdateUpstreamHostButtonToolTip}"
+                    Click="UpdateUpstreamHostButton_Click" />
+
+            <Button x:Name="EditNginxConfButton" Classes="tool" Margin="0,0,7,7"
+                    IsVisible="True"
+                    Content="{x:Static consts:MainConst.EditNginxConfButtonContent}"
+                    ToolTip.Tip="{x:Static consts:MainConst.EditNginxConfButtonToolTip}"
+                    Click="EditConfButton_Click">
+                <Button.IsEnabled>
+                    <MultiBinding Converter="{x:Static convs:MainConv.MainNginxButtonIsEnabledConv}">
+                        <Binding Path="IsConginxExist" />
+                        <Binding Path="IsNginxExist" />
+                        <Binding Path="IsCoproxyIniting" />
+                        <Binding Path="IsNginxIniting" />
+                        <Binding Path="IsComihomoIniting" />
+                        <Binding Path="IsMihomoIniting" />
+                    </MultiBinding>
+                </Button.IsEnabled>
+            </Button>
+            <Button Classes="tool" Margin="0,0,7,7"
+                    IsVisible="True"
+                    Content="{x:Static consts:MainConst.EditMihomoConfButtonContent}"
+                    ToolTip.Tip="{x:Static consts:MainConst.EditMihomoConfButtonToolTip}"
+                    Click="EditConfButton_Click">
+                <Button.IsEnabled>
+                    <MultiBinding Converter="{x:Static convs:MainConv.MainMihomoButtonIsEnabledConv}">
+                        <Binding Path="IsComihomoExist" />
+                        <Binding Path="IsMihomoExist" />
+                        <Binding Path="IsCoproxyIniting" />
+                        <Binding Path="IsComihomoIniting" />
+                        <Binding Path="IsMihomoIniting" />
+                    </MultiBinding>
+                </Button.IsEnabled>
+            </Button>
+            <Button x:Name="EditHostsConfButton" Classes="tool" Margin="0,0,7,7"
+                    IsVisible="True"
+                    Content="{x:Static consts:MainConst.EditHostsConfButtonContent}"
+                    ToolTip.Tip="{x:Static consts:MainConst.EditHostsConfButtonToolTip}"
+                    Click="EditConfButton_Click" />
+            <Button x:Name="ViewLogButton" Classes="tool" Margin="0,0,7,7"
+                    IsVisible="True"
+                    Content="{x:Static consts:MainConst.ViewLogButtonContent}"
+                    ToolTip.Tip="{x:Static consts:MainConst.ViewLogButtonToolTip}"
+                    Click="ViewLogButton_Click" />
+        </WrapPanel>
+
+        <!-- 底部 -->
+        <Grid Grid.Row="4" Margin="0,7,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Button Grid.Column="0" Classes="ghost" Margin="-8,0,0,0"
+                    HorizontalAlignment="Left"
+                    Content="{x:Static consts:MainConst.SettingsButtonContent}"
+                    ToolTip.Tip="{x:Static consts:MainConst.SettingsButtonToolTip}"
+                    Click="SettingsButton_Click" />
+            <Button Grid.Column="1" Classes="ghost"
+                    Focusable="False"
+                    IsVisible="True"
+                    Content="{Binding IsFlashing, Converter={x:Static convs:MainConv.MainNoClickButtonContentConv}}"
+                    ToolTip.Tip="{Binding IsFlashing, Converter={x:Static convs:MainConv.MainNoClickButtonToolTipConv}}"
+                    Click="NoClickButton_Click" />
+            <Button Grid.Column="2" Classes="ghost" Margin="0,0,-8,0"
+                    HorizontalAlignment="Right"
+                    Content="{x:Static consts:MainConst.AboutButtonContent}"
+                    ToolTip.Tip="{x:Static consts:MainConst.AboutButtonToolTip}"
+                    Click="AboutButton_Click" />
+        </Grid>
+
+        <!-- 状态栏 -->
+        <TextBlock Grid.Row="5" Margin="0,4,0,0" FontSize="11" Opacity="0.7"
+                   Text="{Binding ProxyStatusText, Mode=OneWay}" />
+    </Grid>
+</Window>

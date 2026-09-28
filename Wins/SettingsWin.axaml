@@ -1,0 +1,65 @@
+﻿<Window x:Class="Sheas_Cealer_Nix.Wins.SettingsWin"
+        x:DataType="preses:SettingsPres"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:consts="clr-namespace:Sheas_Cealer_Nix.Consts"
+        xmlns:convs="clr-namespace:Sheas_Cealer_Nix.Convs"
+        xmlns:preses="clr-namespace:Sheas_Cealer_Nix.Preses"
+        mc:Ignorable="d"
+        WindowStartupLocation="CenterScreen" CanResize="False" SizeToContent="Height" Width="500"
+        KeyDown="SettingsWin_KeyDown">
+    <Grid Margin="16,14">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Classes="card">
+            <StackPanel Spacing="10">
+                <TextBlock Classes="sectionLabel" Text="{x:Static consts:SettingsConst.AppearanceSectionLabel}" Margin="2,0,0,0" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Button x:Name="ThemesButton"
+                            Grid.Column="0" Margin="0,0,5,0" Classes="secondary"
+                            Content="{Binding IsLightTheme, Converter={x:Static convs:SettingsConv.SettingsThemesButtonContentConv}}"
+                            ToolTip.Tip="{x:Static consts:SettingsConst.ThemesButtonToolTip}"
+                            Click="ThemesButton_Click" />
+                    <Button x:Name="LangsButton"
+                            Grid.Column="1" Margin="5,0,0,0" Classes="secondary"
+                            Content="{Binding IsEnglishLang, Converter={x:Static convs:SettingsConv.SettingsLangsButtonContentConv}}"
+                            ToolTip.Tip="{x:Static consts:SettingsConst.LangsButtonToolTip}"
+                            Click="LangsButton_Click" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Row="1" Classes="card" Margin="0,12,0,0">
+            <StackPanel Spacing="10">
+                <TextBlock Classes="sectionLabel" Text="{x:Static consts:SettingsConst.PreferenceSectionLabel}" Margin="2,0,0,0" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Button x:Name="ColorsButton"
+                            Grid.Column="0" Margin="0,0,5,0" Classes="secondary"
+                            Content="{x:Static consts:SettingsConst.ColorsButtonContent}"
+                            ToolTip.Tip="{x:Static consts:SettingsConst.ColorsButtonToolTip}"
+                            Click="ColorsButton_Click" />
+                    <Button x:Name="WeightsButton"
+                            Grid.Column="1" Margin="5,0,0,0" Classes="secondary"
+                            Content="{Binding IsLightWeight, Converter={x:Static convs:SettingsConv.SettingsWeightsButtonContentConv}}"
+                            ToolTip.Tip="{x:Static consts:SettingsConst.WeightsButtonToolTip}"
+                            Click="WeightsButton_Click" />
+                </Grid>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>
