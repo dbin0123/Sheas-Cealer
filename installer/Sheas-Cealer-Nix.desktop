@@ -2,7 +2,7 @@
 Type=Application
 Name=Sheas Cealer Nix
 Comment=SNI spoofing tool
-Version=__VERSION__
+Version=1.0
 Exec=__EXEC__
 Icon=__ICON__
 Terminal=false

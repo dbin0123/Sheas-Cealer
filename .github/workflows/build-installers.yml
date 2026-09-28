@@ -297,7 +297,11 @@ jobs:
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.9
         with:
           path: installer/Sheas-Cealer.iss
-          options: /DMyAppVersion=${{ steps.version.outputs.version }} /DMyAppArch=${{ matrix.inno-arch }}
+          # 必须一行一个选项：action 用 getMultilineInput 解析，写成单个字符串
+          # 会被 spawn(shell:false) 当成一个 argv 传给 iscc，/D 全部失效。
+          options: |
+            /DMyAppVersion=${{ steps.version.outputs.version }}
+            /DMyAppArch=${{ matrix.inno-arch }}
           install_latest: true
 
       - name: Rename Windows installer
@@ -357,7 +361,7 @@ jobs:
           mkdir -p "$STAGE/DEBIAN" "$STAGE/opt/${APP}" \
             "$STAGE/usr/share/applications" "$STAGE/usr/share/icons/hicolor/256x256/apps"
           cp -r out/publish/. "$STAGE/opt/${APP}/"
-          sed -e "s|__EXEC__|/opt/${APP}/${APP}|" -e "s|__ICON__|sheas-cealer-nix|" -e "s|__VERSION__|${VERSION}|" \
+          sed -e "s|__EXEC__|/opt/${APP}/${APP}|" -e "s|__ICON__|sheas-cealer-nix|" \
             installer/Sheas-Cealer-Nix.desktop > "$STAGE/usr/share/applications/sheas-cealer-nix.desktop"
           cp Sheas-Cealer-Nix-Logo.png "$STAGE/usr/share/icons/hicolor/256x256/apps/sheas-cealer-nix.png"
           printf 'Package: sheas-cealer-nix\nVersion: %s\nArchitecture: %s\nMaintainer: Space Time\nInstalled-Size: %s\nSection: utils\nPriority: optional\nDescription: SNI spoofing tool\n Just Ceal It\n' \
@@ -370,7 +374,7 @@ jobs:
           # 不能走 linuxdeploy 常规的 usr/bin 软链布局，否则 apphost 找不到运行时。
           cp installer/AppRun.sh out/publish/AppRun
           chmod +x out/publish/AppRun
-          sed -e "s|__EXEC__|${APP}|" -e "s|__ICON__|${APP}|" -e "s|__VERSION__|${VERSION}|" \
+          sed -e "s|__EXEC__|${APP}|" -e "s|__ICON__|${APP}|" \
             installer/Sheas-Cealer-Nix.desktop > "out/publish/${APP}.desktop"
 
           curl -fSL -o linuxdeploy-x86_64.AppImage https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
