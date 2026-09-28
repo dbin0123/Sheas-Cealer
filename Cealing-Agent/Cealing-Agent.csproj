@@ -1,7 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <!-- 必须是 WinExe（GUI 子系统），不能是 Exe：控制台子系统的 exe 被
+         ShellExecute+RunAs 拉起时（UseShellExecute=true 下 CreateNoWindow 被忽略），
+         Windows 会给它分配一个常驻控制台窗口，表现为弹一个全是 agent 日志的命令行。
+         agent 没有交互界面、日志走 AgentLog 的文件，WinExe 不分配控制台；
+         Unix 没有子系统概念，产物行为不变。 -->
+    <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
