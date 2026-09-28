@@ -1,0 +1,418 @@
+name: Build Installers
+
+'on':
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号（不带 v 前缀），留空则用 tag 或 0.0.1'
+        required: false
+        default: ''
+        type: string
+
+env:
+  # mihomo 兜底版本：GitHub API 不可用时使用
+  MIHOMO_FALLBACK_VERSION: '1.19.31'
+  # GitHub 加速镜像前缀（空格分隔）。CI 直连 github.com，故默认为空；
+  # 仅在本地网络受限时可临时填入，例如: 'https://gh-proxy.org'
+  GITHUB_MIRRORS: ''
+
+# 同一时间只跑一次。不设的话，tag push 和 workflow_dispatch 可以同时打同一个 release，
+# 两边同时上传资产就会出现 "Asset already exists (race condition)" 并 404，
+# 最终漏掉某个平台的包。不带 cancel-in-progress：后到的排队等，而不是打断正在发布的构建。
+concurrency:
+  group: build-installers
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+            mihomo-arch: windows-amd64
+            installer: inno
+            inno-arch: x64compatible
+          - os: windows-latest
+            rid: win-arm64
+            mihomo-arch: windows-arm64
+            installer: inno
+            inno-arch: arm64
+          - os: ubuntu-latest
+            rid: linux-x64
+            mihomo-arch: linux-amd64
+            installer: linux
+            deb-arch: amd64
+          - os: ubuntu-latest
+            rid: linux-arm64
+            mihomo-arch: linux-arm64
+            installer: linux
+            deb-arch: arm64
+          - os: macos-latest
+            rid: osx-arm64
+            mihomo-arch: darwin-arm64
+            installer: dmg
+          - os: macos-latest
+            rid: osx-x64
+            mihomo-arch: darwin-amd64
+            installer: dmg
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Resolve version
+        id: version
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            V="${{ github.event.inputs.version }}"
+          elif [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            V="${GITHUB_REF_NAME}"
+          else
+            V="0.0.1"
+          fi
+          V="${V#v}"
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "version: $V"
+
+      - name: Restore dependencies
+        run: |
+          dotnet restore Sheas-Cealer-Nix.csproj
+          dotnet restore Cealing-Agent/Cealing-Agent.csproj
+
+      - name: Publish app
+        run: |
+          dotnet publish Sheas-Cealer-Nix.csproj -c Release -r ${{ matrix.rid }} --self-contained true -o out/publish
+          dotnet publish Cealing-Agent/Cealing-Agent.csproj -c Release -r ${{ matrix.rid }} --self-contained true -o out/publish
+
+      - name: Get mihomo latest version
+        id: mihomo-version
+        shell: bash
+        run: |
+          VERSION=""
+          for i in 1 2 3; do
+            VERSION=$(curl -s --connect-timeout 20 --max-time 45 \
+              -H 'Accept: application/vnd.github+json' \
+              https://api.github.com/repos/MetaCubeX/mihomo/releases/latest 2>/dev/null \
+              | grep '"tag_name"' | head -1 | cut -d'"' -f4 || true)
+            if [ -n "$VERSION" ]; then break; fi
+            echo "Attempt $i: failed to query mihomo version, retrying..."
+            sleep 5
+          done
+
+          if [ -z "$VERSION" ]; then
+            VERSION="$MIHOMO_FALLBACK_VERSION"
+            echo "::notice::Could not query latest mihomo version, falling back to v$VERSION"
+          else
+            VERSION="${VERSION#v}"
+          fi
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "mihomo version: $VERSION"
+
+      - name: Download mihomo (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $arch = "${{ matrix.mihomo-arch }}"
+          $version = "${{ steps.mihomo-version.outputs.version }}"
+          if (-not $version) {
+            Write-Host "::notice::mihomo version not available, skipping download"
+            exit 0
+          }
+          $asset = "github.com/MetaCubeX/mihomo/releases/latest/download/mihomo-${arch}-v${version}.zip"
+
+          # 直连 github.com，失败则断点续传重试并校验完整性
+          $mirrors = @()
+          if ("${{ env.GITHUB_MIRRORS }}".Trim()) {
+            $mirrors = "${{ env.GITHUB_MIRRORS }}".Split(' ') | Where-Object { $_ }
+          }
+          $bases = @($mirrors) + @("")
+
+          $ok = $false
+          foreach ($base in $bases) {
+            $url = if ($base) { "$base/$asset" } else { "https://$asset" }
+            Write-Host "--- trying: $url"
+            Remove-Item mihomo.zip -ErrorAction SilentlyContinue
+            for ($attempt = 1; $attempt -le 3; $attempt++) {
+              & curl.exe -L --fail --connect-timeout 15 --max-time 300 -C - -o mihomo.zip $url
+              if ((Test-Path mihomo.zip) -and ((Get-Item mihomo.zip).Length -gt 0)) {
+                # 用解压成功作为完整性校验
+                Remove-Item mihomo-verify -Recurse -Force -ErrorAction SilentlyContinue
+                try {
+                  Expand-Archive -Path mihomo.zip -DestinationPath mihomo-verify -Force
+                  $n = (Get-ChildItem mihomo-verify -Recurse -File | Measure-Object).Count
+                  if ($n -gt 0) {
+                    Write-Host "mihomo.zip verified ($n files)"
+                    $ok = $true
+                    break
+                  }
+                } catch {
+                  Write-Host "  archive incomplete: $($_.Exception.Message)"
+                }
+              }
+              Write-Host "  attempt $attempt incomplete, retrying..."
+              Start-Sleep -Seconds 5
+            }
+            if ($ok) { break }
+          }
+
+          if (-not $ok) {
+            Write-Host "::warning::mihomo download failed after retries, continuing without bundled mihomo"
+            Remove-Item mihomo.zip, mihomo-verify -Recurse -Force -ErrorAction SilentlyContinue
+            exit 0
+          }
+
+          Expand-Archive -Path mihomo.zip -DestinationPath mihomo-temp -Force
+          $mihomo = Get-ChildItem mihomo-temp -Recurse -Filter "mihomo*.exe" | Select-Object -First 1
+          if (-not $mihomo) {
+            Write-Host "::warning::mihomo executable not found in zip, skipping"
+            Remove-Item mihomo.zip, mihomo-temp, mihomo-verify -Recurse -Force -ErrorAction SilentlyContinue
+            exit 0
+          }
+          Copy-Item $mihomo.FullName out/publish/Cealing-Mihomo.exe -Force
+          Copy-Item $mihomo.FullName out/publish/Cealing-Comihomo.exe -Force
+          Remove-Item mihomo.zip, mihomo-temp, mihomo-verify -Recurse -Force -ErrorAction SilentlyContinue
+          Write-Host "mihomo downloaded successfully"
+
+      - name: Download mihomo (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          arch="${{ matrix.mihomo-arch }}"
+          version="${{ steps.mihomo-version.outputs.version }}"
+          if [ -z "$version" ]; then
+            echo "::notice::mihomo version not available, skipping download"
+            exit 0
+          fi
+          # mihomo 的 linux 资产只有 .gz（简单 gzip），没有 .tar.gz
+          asset="github.com/MetaCubeX/mihomo/releases/latest/download/mihomo-${arch}-v${version}.gz"
+
+          rm -f mihomo.gz
+          ok=0
+          for base in ${GITHUB_MIRRORS} ""; do
+            url="${base:+$base/}$asset"
+            echo "--- trying: $url"
+            for attempt in 1 2 3; do
+              curl -L --fail --connect-timeout 15 --max-time 300 -C - -o mihomo.gz "$url" || true
+              if [ -s mihomo.gz ] && gzip -t mihomo.gz 2>/dev/null; then
+                ok=1
+                echo "mihomo.gz verified ($(stat -c%s mihomo.gz 2>/dev/null || stat -f%z mihomo.gz) bytes)"
+                break
+              fi
+              echo "  attempt $attempt incomplete, resuming..."
+              sleep 5
+            done
+            [ "$ok" = 1 ] && break
+          done
+
+          if [ "$ok" -ne 1 ]; then
+            echo "::warning::mihomo download failed after all mirrors, continuing without bundled mihomo"
+            rm -f mihomo.gz
+            exit 0
+          fi
+
+          gunzip -c mihomo.gz > mihomo-bin
+          chmod +x mihomo-bin
+          if [ ! -s mihomo-bin ]; then
+            echo "::warning::mihomo extraction produced empty binary, skipping"
+            rm -f mihomo.gz mihomo-bin
+            exit 0
+          fi
+          file mihomo-bin || true
+
+          cp mihomo-bin out/publish/Cealing-Mihomo
+          cp mihomo-bin out/publish/Cealing-Comihomo
+          chmod +x out/publish/Cealing-Mihomo out/publish/Cealing-Comihomo
+          rm -f mihomo.gz mihomo-bin
+          echo "mihomo downloaded successfully"
+          ls -la out/publish/Cealing-Mihomo*
+
+      - name: Download mihomo (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          arch="${{ matrix.mihomo-arch }}"
+          version="${{ steps.mihomo-version.outputs.version }}"
+          if [ -z "$version" ]; then
+            echo "::notice::mihomo version not available, skipping download"
+            exit 0
+          fi
+          asset="github.com/MetaCubeX/mihomo/releases/latest/download/mihomo-${arch}-v${version}.gz"
+
+          # 直连 github.com，失败则断点续传重试并校验完整性
+          rm -f mihomo.gz
+          ok=0
+          for base in ${GITHUB_MIRRORS} ""; do
+            url="${base:+$base/}$asset"
+            echo "--- trying: $url"
+            for attempt in 1 2 3; do
+              curl -L --fail --connect-timeout 15 --max-time 300 -C - -o mihomo.gz "$url" || true
+              if [ -s mihomo.gz ] && gzip -t mihomo.gz 2>/dev/null; then
+                ok=1
+                echo "mihomo.gz verified ($(stat -c%s mihomo.gz 2>/dev/null || stat -f%z mihomo.gz) bytes)"
+                break
+              fi
+              echo "  attempt $attempt incomplete ($(stat -c%s mihomo.gz 2>/dev/null || stat -f%z mihomo.gz 2>/dev/null || echo 0) bytes), resuming..."
+              sleep 5
+            done
+            [ "$ok" = 1 ] && break
+          done
+
+          if [ "$ok" -ne 1 ]; then
+            echo "::warning::mihomo download failed after all mirrors, continuing without bundled mihomo"
+            rm -f mihomo.gz
+            exit 0
+          fi
+
+          # mihomo 的 .gz 资产是简单 gzip（不是 tar.gz）
+          gunzip -c mihomo.gz > mihomo-bin
+          chmod +x mihomo-bin
+          if [ ! -s mihomo-bin ]; then
+            echo "::warning::mihomo extraction produced empty binary, skipping"
+            rm -f mihomo.gz mihomo-bin
+            exit 0
+          fi
+          file mihomo-bin || true
+
+          cp mihomo-bin out/publish/Cealing-Mihomo
+          cp mihomo-bin out/publish/Cealing-Comihomo
+          chmod +x out/publish/Cealing-Mihomo out/publish/Cealing-Comihomo
+          rm -f mihomo.gz mihomo-bin
+          echo "mihomo downloaded successfully"
+          ls -la out/publish/Cealing-Mihomo*
+
+      - name: Build installer (Windows)
+        if: matrix.installer == 'inno'
+        uses: jrsoftware/ise-setup@v0.1
+        with:
+          version: latest
+          architecture: x64
+          sign: false
+          commands: installer/Sheas-Cealer.iss /DMyAppVersion=${{ steps.version.outputs.version }} /DMyAppArch=${{ matrix.inno-arch }}
+
+      - name: Rename Windows installer
+        if: matrix.installer == 'inno'
+        shell: pwsh
+        run: |
+          $src = "installer\Sheas-Cealer-Nix-Setup-${{ steps.version.outputs.version }}-${{ matrix.inno-arch }}.exe"
+          $dst = "Sheas-Cealer-Nix-Setup-${{ steps.version.outputs.version }}-${{ matrix.rid }}.exe"
+          if (-not (Test-Path $src)) {
+            Write-Host "::error::installer not found: $src"
+            Get-ChildItem installer -Recurse
+            exit 1
+          }
+          Move-Item $src $dst -Force
+          Get-Item $dst | Select-Object Name, Length
+
+      - name: Build installer (macOS)
+        if: matrix.installer == 'dmg'
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x build/make-macos-app.sh
+          ./build/make-macos-app.sh out/publish Sheas-Cealer-Nix ${{ matrix.rid }} ${{ steps.version.outputs.version }}
+
+          APP="out/publish/Sheas-Cealer-Nix.app"
+          if [ ! -d "$APP" ]; then
+            echo "::error::.app bundle not found at $APP"
+            exit 1
+          fi
+
+          # ad-hoc 签名：没有开发者证书时至少让签名结构合法，
+          # 否则部分 macOS 版本会直接拒绝启动。正式分发需换成 Developer ID 证书。
+          codesign --force --deep --sign - "$APP" || echo "::warning::codesign failed, continuing unsigned"
+
+          hdiutil create -volname "Sheas-Cealer-Nix" \
+            -srcfolder "$APP" \
+            -ov -format UDZO \
+            "Sheas-Cealer-Nix-${{ steps.version.outputs.version }}-${{ matrix.rid }}.dmg"
+          ls -lh Sheas-Cealer-Nix-*.dmg
+
+      - name: Build installer (Linux)
+        if: matrix.installer == 'linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.version }}"
+          RID="${{ matrix.rid }}"
+          DEB_ARCH="${{ matrix.deb-arch }}"
+          APP="Sheas-Cealer-Nix"
+
+          # ---- AppImage ----
+          cp installer/AppRun.sh out/publish/AppRun
+          chmod +x out/publish/AppRun
+          sed -e "s|__EXEC__|${APP}|" -e "s|__ICON__|${APP}|" -e "s|__VERSION__|${VERSION}|" \
+            installer/Sheas-Cealer-Nix.desktop > "out/publish/${APP}.desktop"
+          cp Sheas-Cealer-Nix-Logo.png "out/publish/${APP}-Logo.png"
+
+          curl -sL -o linuxdeploy.tar.xz https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.tar.xz
+          tar -xJf linuxdeploy.tar.xz
+          curl -sL -o plugin.tar.xz https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/download/continuous/linuxdeploy-plugin-appimage-x86_64.tar.xz
+          tar -xJf plugin.tar.xz
+          chmod +x linuxdeploy-x86_64 linuxdeploy-plugin-appimage-x86_64
+
+          # APPIMAGE_EXTRACT_AND_RUN=1 让 appimagetool 解压运行而不是 FUSE 挂载，
+          # 交叉架构（x64 runner 打 arm64 包）时挂载必然失败。
+          APPIMAGE_EXTRACT_AND_RUN=1 ./linuxdeploy-x86_64 -d out/publish \
+            -i Sheas-Cealer-Nix-Logo.png -a "$APP" -o AppImage \
+            || echo "::warning::linuxdeploy failed, skipping AppImage"
+
+          if ls "${APP}"-*.AppImage >/dev/null 2>&1; then
+            mv "${APP}"-*.AppImage "${APP}-${VERSION}-${RID}.AppImage"
+          fi
+
+          # ---- .deb（dpkg-deb 是 Ubuntu runner 自带的，不依赖 fpm）----
+          STAGE="$(mktemp -d)"
+          mkdir -p "$STAGE/DEBIAN" "$STAGE/opt/${APP}" \
+            "$STAGE/usr/share/applications" "$STAGE/usr/share/icons/hicolor/256x256/apps"
+          cp -r out/publish/. "$STAGE/opt/${APP}/"
+          # AppRun / .desktop 是 AppImage 专用的，deb 里不要
+          rm -f "$STAGE/opt/${APP}/AppRun" "$STAGE/opt/${APP}/${APP}.desktop"
+          sed -e "s|__EXEC__|/opt/${APP}/${APP}|" -e "s|__ICON__|sheas-cealer-nix|" -e "s|__VERSION__|${VERSION}|" \
+            installer/Sheas-Cealer-Nix.desktop > "$STAGE/usr/share/applications/sheas-cealer-nix.desktop"
+          cp Sheas-Cealer-Nix-Logo.png "$STAGE/usr/share/icons/hicolor/256x256/apps/sheas-cealer-nix.png"
+          printf 'Package: sheas-cealer-nix\nVersion: %s\nArchitecture: %s\nMaintainer: Space Time\nInstalled-Size: %s\nSection: utils\nPriority: optional\nDescription: SNI spoofing tool\n Just Ceal It\n' \
+            "$VERSION" "$DEB_ARCH" "$(du -sk "$STAGE/opt" | cut -f1)" > "$STAGE/DEBIAN/control"
+          dpkg-deb --build --root-owner-group "$STAGE" "sheas-cealer-nix_${VERSION}_${DEB_ARCH}.deb"
+          rm -rf "$STAGE"
+
+          ls -lh sheas-cealer-nix_*.deb "${APP}"-*.AppImage 2>/dev/null || true
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Sheas-Cealer-Nix-${{ matrix.rid }}
+          path: |
+            Sheas-Cealer-Nix-Setup-${{ steps.version.outputs.version }}-${{ matrix.rid }}.exe
+            Sheas-Cealer-Nix-${{ steps.version.outputs.version }}-${{ matrix.rid }}.dmg
+            Sheas-Cealer-Nix-${{ steps.version.outputs.version }}-${{ matrix.rid }}.AppImage
+            sheas-cealer-nix_${{ steps.version.outputs.version }}_*.deb
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+          generate_release_notes: true

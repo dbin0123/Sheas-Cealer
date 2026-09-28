@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Sheas Cealer Nix
+Comment=SNI spoofing tool
+Version=__VERSION__
+Exec=__EXEC__
+Icon=__ICON__
+Terminal=false
+Categories=Network;Security;
+StartupWMClass=Sheas-Cealer-Nix

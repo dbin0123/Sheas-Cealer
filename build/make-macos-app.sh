@@ -10,12 +10,17 @@
 #
 # 用法：
 #   dotnet publish Sheas-Cealer-Nix.csproj -c Release -r osx-arm64 --self-contained true -o out/publish
-#   ./build/make-macos-app.sh out/publish [App 名称]
+#   ./build/make-macos-app.sh out/publish [App 名称] [RID] [版本]
+#
+# RID 必须和 GUI 的 publish 架构一致：CI 里 osx-x64 的包如果 agent 用 osx-arm64 编，
+# 在 Intel Mac 上会直接起不来。
 
 set -euo pipefail
 
 PUBLISH_DIR="${1:-}"
 APP_NAME="${2:-Sheas-Cealer-Nix}"
+RID="${3:-osx-arm64}"
+APP_VERSION="${4:-1.0.0}"
 
 if [[ -z "$PUBLISH_DIR" || ! -d "$PUBLISH_DIR" ]]; then
     echo "用法: $0 <publish 输出目录> [App 名称]" >&2
@@ -115,7 +120,7 @@ rm -rf "$WORK_DIR/verify.iconset"
 # 后果是改了 agent 源码（SNI、HPACK 等）却毫无效果 —— 改的二进制根本没进包。
 AGENT_DIR="$WORK_DIR/agent"
 dotnet publish "$PROJECT_DIR/Cealing-Agent/Cealing-Agent.csproj" \
-    -c Release -r osx-arm64 --self-contained true -o "$AGENT_DIR" >&2
+    -c Release -r "$RID" --self-contained true -o "$AGENT_DIR" >&2
 # 只覆盖 agent 自己的产物，别用它清掉 GUI 的 Cealing-Core.dll
 for f in "$AGENT_DIR"/Cealing-Agent "$AGENT_DIR"/Cealing-Agent.dll "$AGENT_DIR"/Cealing-Agent.deps.json "$AGENT_DIR"/Cealing-Agent.runtimeconfig.json; do
     [[ -f "$f" ]] && cp -f "$f" "$PUBLISH_DIR/"
@@ -165,9 +170,9 @@ cat > "$STAGE_DIR/Contents/Info.plist" <<PLIST
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0.0</string>
+    <string>$APP_VERSION</string>
     <key>CFBundleVersion</key>
-    <string>1.0.0</string>
+    <string>$APP_VERSION</string>
     <key>LSMinimumSystemVersion</key>
     <string>12.0</string>
     <key>NSHighResolutionCapable</key>
