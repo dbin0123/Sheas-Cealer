@@ -293,7 +293,8 @@ jobs:
 
       - name: Build installer (Windows)
         if: matrix.installer == 'inno'
-        uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
+        # v1.2.9 起才支持 install_latest（内含 Inno Setup 下载安装），且运行在 node24 上
+        uses: Minionguyjpro/Inno-Setup-Action@v1.2.9
         with:
           path: installer/Sheas-Cealer.iss
           options: /DMyAppVersion=${{ steps.version.outputs.version }} /DMyAppArch=${{ matrix.inno-arch }}
@@ -346,44 +347,55 @@ jobs:
           RID="${{ matrix.rid }}"
           DEB_ARCH="${{ matrix.deb-arch }}"
           APP="Sheas-Cealer-Nix"
-
-          # ---- AppImage ----
-          cp installer/AppRun.sh out/publish/AppRun
-          chmod +x out/publish/AppRun
-          sed -e "s|__EXEC__|${APP}|" -e "s|__ICON__|${APP}|" -e "s|__VERSION__|${VERSION}|" \
-            installer/Sheas-Cealer-Nix.desktop > "out/publish/${APP}.desktop"
-          cp Sheas-Cealer-Nix-Logo.png "out/publish/${APP}-Logo.png"
-
-          curl -fSL -o linuxdeploy-x86_64.AppImage https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
-          curl -fSL -o linuxdeploy-plugin-appimage-x86_64.AppImage https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/download/continuous/linuxdeploy-plugin-appimage-x86_64.AppImage
-          chmod +x linuxdeploy-x86_64.AppImage linuxdeploy-plugin-appimage-x86_64.AppImage
-
-          # APPIMAGE_EXTRACT_AND_RUN=1 让 appimagetool 解压运行而不是 FUSE 挂载，
-          # 交叉架构（x64 runner 打 arm64 包）时挂载必然失败。
-          APPIMAGE_EXTRACT_AND_RUN=1 ./linuxdeploy-x86_64.AppImage -d out/publish \
-            -i Sheas-Cealer-Nix-Logo.png -a "$APP" -o AppImage \
-            || echo "::warning::linuxdeploy failed, skipping AppImage"
-
-          if ls "${APP}"-*.AppImage >/dev/null 2>&1; then
-            mv "${APP}"-*.AppImage "${APP}-${VERSION}-${RID}.AppImage"
-          fi
+          APPIMAGE="${APP}-${VERSION}-${RID}.AppImage"
+          DEB="sheas-cealer-nix_${VERSION}_${DEB_ARCH}.deb"
 
           # ---- .deb（dpkg-deb 是 Ubuntu runner 自带的，不依赖 fpm）----
+          # 先打 deb：AppImage 步骤会往 out/publish 里塞 AppRun / usr/ 等 AppDir 结构，
+          # 先打包才能保证 deb 里只有 dotnet publish 的干净产物。
           STAGE="$(mktemp -d)"
           mkdir -p "$STAGE/DEBIAN" "$STAGE/opt/${APP}" \
             "$STAGE/usr/share/applications" "$STAGE/usr/share/icons/hicolor/256x256/apps"
           cp -r out/publish/. "$STAGE/opt/${APP}/"
-          # AppRun / .desktop 是 AppImage 专用的，deb 里不要
-          rm -f "$STAGE/opt/${APP}/AppRun" "$STAGE/opt/${APP}/${APP}.desktop"
           sed -e "s|__EXEC__|/opt/${APP}/${APP}|" -e "s|__ICON__|sheas-cealer-nix|" -e "s|__VERSION__|${VERSION}|" \
             installer/Sheas-Cealer-Nix.desktop > "$STAGE/usr/share/applications/sheas-cealer-nix.desktop"
           cp Sheas-Cealer-Nix-Logo.png "$STAGE/usr/share/icons/hicolor/256x256/apps/sheas-cealer-nix.png"
           printf 'Package: sheas-cealer-nix\nVersion: %s\nArchitecture: %s\nMaintainer: Space Time\nInstalled-Size: %s\nSection: utils\nPriority: optional\nDescription: SNI spoofing tool\n Just Ceal It\n' \
             "$VERSION" "$DEB_ARCH" "$(du -sk "$STAGE/opt" | cut -f1)" > "$STAGE/DEBIAN/control"
-          dpkg-deb --build --root-owner-group "$STAGE" "sheas-cealer-nix_${VERSION}_${DEB_ARCH}.deb"
+          dpkg-deb --build --root-owner-group "$STAGE" "$DEB"
           rm -rf "$STAGE"
 
-          ls -lh sheas-cealer-nix_*.deb "${APP}"-*.AppImage 2>/dev/null || true
+          # ---- AppImage ----
+          # AppRun 用自定义脚本：.NET 自包含产物的 dll 与主程序必须待在同一目录，
+          # 不能走 linuxdeploy 常规的 usr/bin 软链布局，否则 apphost 找不到运行时。
+          cp installer/AppRun.sh out/publish/AppRun
+          chmod +x out/publish/AppRun
+          sed -e "s|__EXEC__|${APP}|" -e "s|__ICON__|${APP}|" -e "s|__VERSION__|${VERSION}|" \
+            installer/Sheas-Cealer-Nix.desktop > "out/publish/${APP}.desktop"
+
+          curl -fSL -o linuxdeploy-x86_64.AppImage https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          curl -fSL -o linuxdeploy-plugin-appimage-x86_64.AppImage https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/download/continuous/linuxdeploy-plugin-appimage-x86_64.AppImage
+          chmod +x linuxdeploy-x86_64.AppImage linuxdeploy-plugin-appimage-x86_64.AppImage
+
+          # 参数逐个说明（写错会直接失败，注意）：
+          #   --appdir            没有短参形式；--output 的值必须是小写 appimage（插件名按文件名正则解析）
+          #   --icon-filename     部署后的图标名要与 desktop 的 Icon= 完全一致，否则 root 阶段报"找不到图标"退出
+          #   APPIMAGE_EXTRACT_AND_RUN=1   runner 无 FUSE，AppImage 只能解压运行
+          #   LDAI_OUTPUT         直接指定产物文件名，省掉事后改名
+          #   PATH="$PWD:$PATH"   双保险让 findPlugins 在当前目录找到插件
+          PATH="$PWD:$PATH" \
+          APPIMAGE_EXTRACT_AND_RUN=1 \
+          LINUXDEPLOY_OUTPUT_APP_NAME="$APP" \
+          LINUXDEPLOY_OUTPUT_VERSION="$VERSION" \
+          LDAI_OUTPUT="$APPIMAGE" \
+            ./linuxdeploy-x86_64.AppImage \
+              --appdir out/publish \
+              --desktop-file "out/publish/${APP}.desktop" \
+              --icon-file Sheas-Cealer-Nix-Logo.png \
+              --icon-filename "$APP" \
+              --output appimage
+
+          ls -lh "$DEB" "$APPIMAGE"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

@@ -140,10 +140,17 @@ cp "$BUNDLE_ICNS" "$STAGE_DIR/Contents/Resources/AppIcon.icns"
 
 # ---------- 2b. 编译状态栏助手 ----------
 # 独立 ObjC 进程，创建 NSStatusItem 菜单栏图标。
+# 必须显式指定 -arch：CI 在 arm64 runner 上交叉打 osx-x64 包时，
+# clang 默认产出宿主架构，Intel Mac 上助手会因架构不符直接起不来。
 SWIFT_SRC="$PROJECT_DIR/build/StatusBarHelper.m"
 SWIFT_OUT="$STAGE_DIR/Contents/MacOS/StatusBarHelper"
+STATUS_BAR_ARCH=""
+case "$RID" in
+    osx-arm64) STATUS_BAR_ARCH="-arch arm64" ;;
+    osx-x64)   STATUS_BAR_ARCH="-arch x86_64" ;;
+esac
 if [[ -f "$SWIFT_SRC" ]]; then
-    clang -fobjc-arc -framework Cocoa -O2 "$SWIFT_SRC" -o "$SWIFT_OUT" || {
+    clang -fobjc-arc $STATUS_BAR_ARCH -framework Cocoa -O2 "$SWIFT_SRC" -o "$SWIFT_OUT" || {
         echo "警告: StatusBarHelper 编译失败，菜单栏图标将不可用" >&2
     }
     chmod +x "$SWIFT_OUT" 2>/dev/null || true
