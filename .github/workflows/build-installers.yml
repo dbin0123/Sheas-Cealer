@@ -354,15 +354,13 @@ jobs:
             installer/Sheas-Cealer-Nix.desktop > "out/publish/${APP}.desktop"
           cp Sheas-Cealer-Nix-Logo.png "out/publish/${APP}-Logo.png"
 
-          curl -sL -o linuxdeploy.tar.xz https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.tar.xz
-          tar -xJf linuxdeploy.tar.xz
-          curl -sL -o plugin.tar.xz https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/download/continuous/linuxdeploy-plugin-appimage-x86_64.tar.xz
-          tar -xJf plugin.tar.xz
-          chmod +x linuxdeploy-x86_64 linuxdeploy-plugin-appimage-x86_64
+          curl -fSL -o linuxdeploy-x86_64.AppImage https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          curl -fSL -o linuxdeploy-plugin-appimage-x86_64.AppImage https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/download/continuous/linuxdeploy-plugin-appimage-x86_64.AppImage
+          chmod +x linuxdeploy-x86_64.AppImage linuxdeploy-plugin-appimage-x86_64.AppImage
 
           # APPIMAGE_EXTRACT_AND_RUN=1 让 appimagetool 解压运行而不是 FUSE 挂载，
           # 交叉架构（x64 runner 打 arm64 包）时挂载必然失败。
-          APPIMAGE_EXTRACT_AND_RUN=1 ./linuxdeploy-x86_64 -d out/publish \
+          APPIMAGE_EXTRACT_AND_RUN=1 ./linuxdeploy-x86_64.AppImage -d out/publish \
             -i Sheas-Cealer-Nix-Logo.png -a "$APP" -o AppImage \
             || echo "::warning::linuxdeploy failed, skipping AppImage"
 
