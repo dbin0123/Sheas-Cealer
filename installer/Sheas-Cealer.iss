@@ -4,7 +4,6 @@
 ;   /DMyAppVersion=1.0.0 /DMyAppArch=x64compatible
 ;
 ; 输出到 out\installer\（相对脚本目录），CI 从这里取产物。
-OutputDir=..\out\installer
 
 #define MyAppName "Sheas Cealer Nix"
 #define MyAppVersion "0.0.1"
@@ -15,6 +14,7 @@ OutputDir=..\out\installer
 #define PublishDir "..\out\publish"
 
 [Setup]
+OutputDir=..\out\installer
 AppId={{D3A7F2C1-9B4E-4E8A-B6C5-1F0E2D3C4A5B}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
