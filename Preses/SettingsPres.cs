@@ -1,4 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
+using Sheas_Cealer_Nix.Props;
+using Sheas_Cealer_Nix.Utils;
 
 using Avalonia.Styling;
 
@@ -15,6 +17,8 @@ internal partial class SettingsPres : GlobalPres
 
     internal SettingsPres()
     {
+        // 直接给字段赋值，避免构造函数触发一次开机自启的重新注册和写盘
+        isAutoStart = Settings.Default.IsAutoStart;
         //IsEnglishLang = Settings.Default.IsEnglishLang switch
         //{
         //    -1 => null,
@@ -64,5 +68,27 @@ internal partial class SettingsPres : GlobalPres
 
         //Settings.Default.IsLightWeight = (sbyte)(value.HasValue ? value.Value ? 1 : 0 : -1);
         //Settings.Default.Save();
+    }
+
+    [ObservableProperty]
+    private bool isAutoStart;
+    partial void OnIsAutoStartChanged(bool value)
+    {
+        try
+        {
+            AutoStartManager.SetEnabled(value);
+        }
+        catch { }
+
+        // 以系统里的真实注册状态为准；注册失败时回滚开关，避免设置里记下一个假状态
+        bool actual = AutoStartManager.IsEnabled();
+
+        if (actual != value)
+            IsAutoStart = actual;
+        else
+        {
+            Settings.Default.IsAutoStart = actual;
+            Settings.Default.Save();
+        }
     }
 }

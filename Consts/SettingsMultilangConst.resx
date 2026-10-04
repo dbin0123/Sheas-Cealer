@@ -148,4 +148,10 @@
   <data name="PreferenceSectionLabel" xml:space="preserve">
     <value>Preferences</value>
   </data>
+  <data name="AutoStartCheckBoxContent" xml:space="preserve">
+    <value>Launch at system startup</value>
+  </data>
+  <data name="AutoStartCheckBoxToolTip" xml:space="preserve">
+    <value>Start Sheas Cealer Nix automatically when you log in</value>
+  </data>
 </root>

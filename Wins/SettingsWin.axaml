@@ -59,6 +59,11 @@
                             ToolTip.Tip="{x:Static consts:SettingsConst.WeightsButtonToolTip}"
                             Click="WeightsButton_Click" />
                 </Grid>
+                <CheckBox x:Name="AutoStartCheckBox"
+                          Content="{x:Static consts:SettingsConst.AutoStartCheckBoxContent}"
+                          ToolTip.Tip="{x:Static consts:SettingsConst.AutoStartCheckBoxToolTip}"
+                          IsChecked="{Binding IsAutoStart}"
+                          Margin="2,0,0,0" />
             </StackPanel>
         </Border>
     </Grid>

@@ -179,6 +179,16 @@ public partial class MainWin : Window
         {
             try
             {
+                // 全局伪造开着时必须先显式停掉再退出：StopAsync 内部会先 UserTrust.Remove()
+                // 再让 agent 停引擎、还原 hosts、拆系统根证书，和正常点「停止全局伪造」一致。
+                // 这样即使后面的 Shutdown 应答收不到，退出时伪造也已经关掉了。
+                if (MainPres.IsProxyRunning)
+                {
+                    Task<AgentResponse> stop = ProxyController.StopAsync();
+
+                    await Task.WhenAny(AwaitQuietly(stop), Task.Delay(ExitHandshakeWait));
+                }
+
                 // agent 是常驻特权进程，退出时必须用 Shutdown 把它一起带走：
                 // 它会停引擎、还原 hosts、拆掉根证书。少了这一步，
                 // 每次退出都留下一个管理员权限的 Cealing-Agent 和被改过的 hosts。

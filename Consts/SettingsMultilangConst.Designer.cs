@@ -212,5 +212,23 @@ namespace Sheas_Cealer_Nix.Consts {
             }
         }
         
+        /// <summary>
+        ///   查找类似 Launch at system startup 的本地化字符串。
+        /// </summary>
+        public static string AutoStartCheckBoxContent {
+            get {
+                return ResourceManager.GetString("AutoStartCheckBoxContent", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 Start Sheas Cealer Nix automatically when you log in 的本地化字符串。
+        /// </summary>
+        public static string AutoStartCheckBoxToolTip {
+            get {
+                return ResourceManager.GetString("AutoStartCheckBoxToolTip", resourceCulture);
+            }
+        }
+        
     }
 }

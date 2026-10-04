@@ -148,4 +148,10 @@
   <data name="PreferenceSectionLabel" xml:space="preserve">
     <value>偏好</value>
   </data>
+  <data name="AutoStartCheckBoxContent" xml:space="preserve">
+    <value>开机自动启动</value>
+  </data>
+  <data name="AutoStartCheckBoxToolTip" xml:space="preserve">
+    <value>登录系统后自动启动 Sheas Cealer Nix</value>
+  </data>
 </root>

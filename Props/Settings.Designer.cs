@@ -142,5 +142,16 @@ namespace Sheas_Cealer_Nix.Props {
                 this["PromptAgentOnStartup"] = value;
             }
         }
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool IsAutoStart {
+            get {
+                return ((bool)(this["IsAutoStart"]));
+            }
+            set {
+                this["IsAutoStart"] = value;
+            }
+        }
     }
 }
