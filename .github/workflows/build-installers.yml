@@ -7,7 +7,7 @@ name: Build Installers
   workflow_dispatch:
     inputs:
       version:
-        description: '版本号（不带 v 前缀），留空则用 tag 或 1.0.1'
+        description: '版本号（不带 v 前缀），留空则用 tag 或 1.0.2'
         required: false
         default: ''
         type: string
@@ -78,7 +78,7 @@ jobs:
           elif [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             V="${GITHUB_REF_NAME}"
           else
-            V="1.0.1"
+            V="1.0.2"
           fi
           V="${V#v}"
           echo "version=$V" >> "$GITHUB_OUTPUT"

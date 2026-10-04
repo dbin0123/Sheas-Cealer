@@ -9,7 +9,7 @@
 ; 默认值仅供本地直接编译用；CI 通过 /D 注入，必须用 #ifndef 包住，
 ; 否则命令行定义会被这里的 #define 覆盖（或触发重复定义错误）。
 #ifndef MyAppVersion
-  #define MyAppVersion "1.0.1"
+  #define MyAppVersion "1.0.2"
 #endif
 #ifndef MyAppArch
   #define MyAppArch "x64compatible"
