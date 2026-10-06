@@ -361,3 +361,6 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# Linux 打包工具：build-installers 每次现场 curl 下来用，几百 MB 不进库
+linuxdeploy*.AppImage
