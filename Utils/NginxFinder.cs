@@ -81,6 +81,19 @@ internal static partial class NginxFinder
         }
     }
 
+    // 暂存副本会把可执行文件挪到另一个目录（见 BinaryStager），缓存里指向旧目录的路径必须立刻作废，
+    // 否则写进配置的 NginxBinaryPath 还是 root 执行不了的 bundle 路径。
+    // 这里刻意不复用 Refresh：它有 5 秒限流，而目录换了之后晚一秒都是错路径。
+    internal static void Invalidate()
+    {
+        lock (CacheLock)
+        {
+            PathCache.Clear();
+            CacheResolved.Clear();
+            CompatibleCache.Clear();
+        }
+    }
+
     private static string? Search(bool coproxy)
     {
         foreach (string candidate in Candidates(coproxy))

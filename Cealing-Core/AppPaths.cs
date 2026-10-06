@@ -48,6 +48,26 @@ public static class AppPaths
     }
 
     /// <summary>
+    /// root 侧二进制的暂存目录（按版本分文件夹）。bundle 挂在 root 执行不了的文件系统上时
+    /// （AppImage 的 FUSE 挂载），GUI 会把可执行文件复制到这里的真实目录再交给提权进程。
+    /// </summary>
+    public static string StagedBinDir(string version)
+    {
+        if (OperatingSystem.IsMacOS())
+            return Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                "Library", "Application Support", AppFolderName, "bin", version);
+
+        string? xdgData = Environment.GetEnvironmentVariable("XDG_DATA_HOME");
+
+        string root = string.IsNullOrWhiteSpace(xdgData)
+            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "share")
+            : xdgData;
+
+        return Path.Combine(root, AppFolderName, "bin", version);
+    }
+
+    /// <summary>
     /// 把比较两条路径的差异消掉：macOS 上 <c>/var</c> 是 <c>/private/var</c> 的软链，
     /// 大小写在 Windows 上也不敏感，直接比字符串会误判成「不是同一个 agent」。
     /// </summary>

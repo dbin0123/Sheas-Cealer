@@ -34,6 +34,10 @@
     <Compile Include="..\Utils\AgentClient.cs" Link="GuiSource\AgentClient.cs" />
     <Compile Include="..\Utils\UserTrust.cs" Link="GuiSource\UserTrust.cs" />
     <Compile Include="..\Utils\ProxyController.cs" Link="GuiSource\ProxyController.cs" />
+    <!-- MainConst 的二进制路径要经过 BinaryStager（root 起不了 FUSE bundle 里的可执行文件），
+         BinaryStager 又要作废 NginxFinder 里指向旧目录的路径缓存，两个都得编进来。 -->
+    <Compile Include="..\Utils\BinaryStager.cs" Link="GuiSource\BinaryStager.cs" />
+    <Compile Include="..\Utils\NginxFinder.cs" Link="GuiSource\NginxFinder.cs" />
     <Compile Include="..\Utils\DataMigration.cs" Link="GuiSource\DataMigration.cs" />
     <Compile Include="..\Utils\Http.cs" Link="GuiSource\Http.cs" />
     <Compile Include="..\Utils\LogTail.cs" Link="GuiSource\LogTail.cs" />

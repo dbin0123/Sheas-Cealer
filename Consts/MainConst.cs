@@ -1,5 +1,6 @@
 ﻿using Cealing_Core;
 using Microsoft.Win32;
+using Sheas_Cealer_Nix.Utils;
 using System;
 using System.IO;
 using System.Security.Principal;
@@ -57,6 +58,12 @@ internal abstract partial class MainConst : MainMultilangConst
     // 每次升级都会丢，所以统一挪到这里，见 DataMigration。
     internal static string DataDir => AppPaths.DataDir;
 
+    // 提权进程眼里的「应用目录」：bundle 挂在 root 执行不了的 FUSE 上时（AppImage），
+    // 这里换成 BinaryStager 复制出来的真实目录。传给 agent 的 --app-dir、写进配置的引擎
+    // 二进制路径、以及复用 agent 时的身份比对都必须用这一个值，否则 agent 会被判成
+    // 「应用目录不一致」，每次点全局伪造都白杀白重起一轮。
+    internal static string AgentAppDir => BinaryStager.StagedDir ?? AppDir;
+
     internal static string CealHostPath => Path.Combine(DataDir, "Cealing-Host-*.json");
     internal static string LocalHostPath => Path.Combine(DataDir, "Cealing-Host-L.json");
     internal static string UpstreamHostPath => Path.Combine(DataDir, "Cealing-Host-U.json");
@@ -95,8 +102,10 @@ internal abstract partial class MainConst : MainMultilangConst
 
     // 只有 Windows 需要 .exe 后缀；类 Unix 平台的可执行文件不带扩展名，
     // 且名字会直接成为进程名，所以 Process.GetProcessesByName 才能对上。
+    // 这些二进制全都由提权进程（agent，或 agent 拉起的 nginx/mihomo）来执行，
+    // 所以路径挂在 AgentAppDir 而不是 AppDir 下。
     private static string BinPath(string name) => Path.Combine(
-        AppDir,
+        AgentAppDir,
         OperatingSystem.IsWindows() ? $"{name}.exe" : name);
 
     internal static string NotifyIconText => "Sheas Cealer Nix";

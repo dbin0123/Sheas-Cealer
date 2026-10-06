@@ -32,6 +32,19 @@ internal sealed class ProxyController(
     {
         MainConst.AgentLaunchError = string.Empty;
 
+        // 先决定 root 侧的可执行文件目录，再谈复用：AppImage 之类挂在 FUSE 上的 bundle
+        // 对 root 一律 EACCES（连 exec 都会被拒），所以要先把二进制复制到真实目录。
+        // 放在最前面还有个必要条件：正在跑的 agent 上报的 --app-dir 就是上一次复制出来的目录，
+        // 先判定复用会把它的目录「复制好之前」的 AppDir 拿去比对，误判成不兼容而白杀一轮。
+        string? stageError = await BinaryStager.EnsureStagedAsync();
+
+        if (stageError is not null)
+        {
+            MainConst.AgentLaunchError = stageError;
+
+            return false;
+        }
+
         // 已经有一个 agent 在跑：先确认身份，再复用。
         if (await WaitForAgentAsync(TimeSpan.FromSeconds(2)))
             return await ClaimLeaseAsync();
@@ -54,7 +67,7 @@ internal sealed class ProxyController(
                 MainConst.AgentBinaryPath,
                 AgentPaths.SocketPath,
                 MainConst.ProxyConfigPath,
-                MainConst.AppDir,
+                MainConst.AgentAppDir,
                 MainConst.DataDir,
                 PrivilegeEscalator.CurrentUid,
                 MainConst.AgentLogPath);
@@ -152,8 +165,8 @@ internal sealed class ProxyController(
         if (AppPaths.Normalize(status.ConfigPath) != AppPaths.Normalize(MainConst.ProxyConfigPath))
             return $"配置路径不一致（agent 用 {status.ConfigPath}，本应用用 {MainConst.ProxyConfigPath}）";
 
-        if (!string.IsNullOrWhiteSpace(status.AppDir) && AppPaths.Normalize(status.AppDir) != AppPaths.Normalize(MainConst.AppDir))
-            return $"应用目录不一致（agent {status.AppDir}，本应用 {MainConst.AppDir}）";
+        if (!string.IsNullOrWhiteSpace(status.AppDir) && AppPaths.Normalize(status.AppDir) != AppPaths.Normalize(MainConst.AgentAppDir))
+            return $"应用目录不一致（agent {status.AppDir}，本应用 {MainConst.AgentAppDir}）";
 
         return null;
     }
