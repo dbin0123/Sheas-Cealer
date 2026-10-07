@@ -1158,14 +1158,20 @@ public partial class MainWin : Window
 
             mihomoConfDict["mixed-port"] = hostsMihomoConfDict["mixed-port"] = MihomoMixedPort;
 
-            // 见 Utils/MihomoTunRoutes：不排除的话引擎的回源连接会被 auto-route 吸进 TUN 打转。
+            // 见 Utils/MihomoTunRoutes：源站 IP 不进 TUN，回源少绕一层引擎。
             List<string> routeExcludeAddresses = MihomoTunRoutes.BuildRouteExcludeAddresses(
                 CealHostRulesDict.Values.Where(rules => rules is not null).SelectMany(rules => rules!).Select(rule => rule.cealHostIp));
+
+            // Linux 上没有「系统栈」可用：tun.stack 写 system 或 mixed 时，包被 auto-route 塞进 TUN
+            // 之后引擎根本不接手（实测 /connections 恒为 0，debug 日志里一条 [TCP] 都没有），
+            // 于是只有 hosts 伪造出的 127.0.0.1 和 route-exclude-address 里的源站 IP 能通，
+            // 其余目标全卡在 SYN-SENT——这就是「google 能开、百度打不开」。换 gvisor 后引擎才真正处理 TCP。
+            string tunStack = OperatingSystem.IsLinux() ? "gvisor" : "system";
 
             mihomoConfDict["tun"] = hostsMihomoConfDict["tun"] = new
             {
                 enable = true,
-                stack = "system",
+                stack = tunStack,
                 autoRoute = true,
                 autoDetectInterface = true,
                 dnsHijack = new[] { "any:53", "tcp://any:53" },
