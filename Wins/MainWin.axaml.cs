@@ -92,6 +92,10 @@ public partial class MainWin : Window
             StatusBarHelper.Start(this);
         }
 
+        // 见 Utils/X11CloseProtocol：不摘掉帧同步声明的话，Cinnamon 点 X 会直接杀进程，
+        // 下面的 Closing→Hide 根本没机会跑。
+        X11CloseProtocol.StripFrameSync(this);
+
         // macOS 的托盘由外部 StatusBarHelper 二进制提供（csproj 只在 OSX 上编译它），
         // 其余平台只能用 Avalonia 原生托盘。两边都没有的话，点 X 隐藏就等于
         // 造出一个看不见也叫不回来的残留进程 —— 所以这里把「能不能隐藏」记下来交给 Closing 判断。
