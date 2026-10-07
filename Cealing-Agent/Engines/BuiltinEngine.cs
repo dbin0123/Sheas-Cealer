@@ -203,6 +203,14 @@ internal sealed class BuiltinEngine()
         }
         catch (Exception ex) when (ex is HttpRequestException or IOException || ex is OperationCanceledException && !context.RequestAborted.IsCancellationRequested)
         {
+            // 回源失败过去是**静默 502**。这里是整条链路上唯一能区分「连接被 TUN 吸走所以超时」
+            // 「TLS 被 reset」还是「上游 IP 已经失效」的地方，不打出来只能靠外部猜。
+            string matchedPattern = rule.ServerName.ToString();
+            string pattern = matchedPattern.Length <= 72 ? matchedPattern : matchedPattern[..72] + '…';
+            string inner = ex.InnerException is null ? string.Empty : $" <- {ex.InnerException.GetType().Name}: {ex.InnerException.Message}";
+
+            AgentLog.Warn($"upstream connect failed for {request.Host.Host}{request.Path} → {rule.Ip}:{rule.Port} sni={(rule.SniEnabled ? rule.Sni : "-")} rule=[{pattern}] {ex.GetType().Name}: {ex.Message}{inner}");
+
             context.Response.StatusCode = StatusCodes.Status502BadGateway;
             return;
         }

@@ -11,16 +11,33 @@ namespace Sheas_Cealer_Nix.Utils;
 // （SecTrustSettingsSetTrustSettings: The authorization was denied since no user interaction was possible）。
 // **用户（user）域**的信任不需要授权，而 GUI 本来就是以该用户身份运行的，所以由 GUI 来做。
 // 效果是浏览器和本机其它应用都会信任这张根证书；停止/退出时删除。
+//
+// Linux 走同样的思路：Chromium/Edge 不看 update-ca-certificates 维护的 OpenSSL 系统库，
+// 只看 NSS，其中用户域是 ~/.pki/nssdb（certutil 写入，不需要 root），所以也由 GUI 负责。
 internal static class UserTrust
 {
     private const string RootCertSubjectName = "Cealing Cert Root";
     private const string SystemKeychain = "/Library/Keychains/System.keychain";
+    // NSS 里的条目名用证书 CN，和 macOS 侧按 CN 查找保持一致。
+    private const string NssNickname = RootCertSubjectName;
 
     private static string LoginKeychain => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library", "Keychains", "login.keychain-db");
 
+    private static string NssDatabaseDirectory => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".pki", "nssdb");
+
+    private static string NssDatabase => "sql:" + NssDatabaseDirectory;
+
     internal static void Install()
     {
+        if (OperatingSystem.IsLinux())
+        {
+            InstallNssRoot();
+
+            return;
+        }
+
         if (!OperatingSystem.IsMacOS() || !File.Exists(MainConst.AgentRootCertPath))
             return;
 
@@ -192,6 +209,13 @@ internal static class UserTrust
 
     internal static void Remove()
     {
+        if (OperatingSystem.IsLinux())
+        {
+            RemoveNssRoot();
+
+            return;
+        }
+
         if (!OperatingSystem.IsMacOS())
             return;
 
@@ -232,6 +256,83 @@ internal static class UserTrust
             .Where(line => line.Contains("SHA-1 hash"))
             .Select(line => line[(line.LastIndexOf(' ') + 1)..].Trim())
             .Where(hash => hash.Length == 40);
+
+    /// <summary>
+    /// 根证书是否已写进当前用户的 NSS 库（Linux 上 Chromium/Edge 真正读的本地信任库）。
+    /// certutil 缺失（未安装 libnss3-tools）或写入失败都返回 false，供 GUI 提示而不是静默。
+    /// </summary>
+    internal static bool IsTrustedInNss()
+    {
+        if (!OperatingSystem.IsLinux())
+            return true;
+
+        (bool started, int exitCode, string output) = RunNss(["-L", "-n", NssNickname, "-d", NssDatabase], "list root cert");
+
+        if (!started || exitCode != 0)
+            return false;
+
+        // `certutil -L -n <name>` 打印的是**整张证书的详细 dump**，不是不带 -n 时那种「昵称 + 信任位」
+        // 两列表格（实测：条目不存在时返回非 0；存在时 dump 里有 "SSL Flags: Valid CA / Trusted CA"）。
+        // -t "C,," 落的正是 C 位，对应 dump 里的 "Trusted CA"；信任位为空时那一段是空的。
+        return output.Contains("Trusted CA", StringComparison.Ordinal);
+    }
+
+    private static void InstallNssRoot()
+    {
+        if (!File.Exists(MainConst.AgentRootCertPath))
+            return;
+
+        try
+        {
+            Directory.CreateDirectory(NssDatabaseDirectory);
+        }
+        catch
+        {
+            return;
+        }
+
+        // 先删后加：条目里可能残留上一代的根（旧实现每次启动重新自签），
+        // 只跑 -A 会变成「同名两张证书」，链能不能对上全看运气。
+        RunNss(["-D", "-n", NssNickname, "-d", NssDatabase], "remove stale root cert");
+
+        // -t "C,," 只给 CA 信任位，不给 email / 对象签名。
+        RunNss(["-A", "-t", "C,,", "-n", NssNickname, "-i", MainConst.AgentRootCertPath, "-d", NssDatabase], "add root cert");
+    }
+
+    private static void RemoveNssRoot() =>
+        RunNss(["-D", "-n", NssNickname, "-d", NssDatabase], "remove root cert");
+
+    private static (bool Started, int ExitCode, string Output) RunNss(string[] args, string what)
+    {
+        try
+        {
+            ProcessStartInfo startInfo = new("certutil") { UseShellExecute = false, RedirectStandardError = true, RedirectStandardOutput = true };
+
+            foreach (string arg in args)
+                startInfo.ArgumentList.Add(arg);
+
+            using Process? process = Process.Start(startInfo);
+
+            if (process is null)
+                return (false, -1, string.Empty);
+
+            string output = process.StandardOutput.ReadToEnd();
+            string error = process.StandardError.ReadToEnd();
+
+            if (!process.WaitForExit(15000))
+                return (false, -1, output);
+
+            return (true, process.ExitCode, output + error);
+        }
+        catch (Exception ex)
+        {
+            // certutil 不存在会走到这里。不能当成成功，否则用户只看到浏览器一直拒 TLS，
+            // 不知道是缺 libnss3-tools。
+            Debug.WriteLine($"[UserTrust] {what} failed: {ex.Message}");
+
+            return (false, -1, string.Empty);
+        }
+    }
 
     private static string Run(params string[] args)
     {

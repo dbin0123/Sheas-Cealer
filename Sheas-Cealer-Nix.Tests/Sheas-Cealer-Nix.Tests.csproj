@@ -42,6 +42,7 @@
     <Compile Include="..\Utils\Http.cs" Link="GuiSource\Http.cs" />
     <Compile Include="..\Utils\LogTail.cs" Link="GuiSource\LogTail.cs" />
     <Compile Include="..\Utils\MihomoDownloader.cs" Link="GuiSource\MihomoDownloader.cs" />
+    <Compile Include="..\Utils\MihomoTunRoutes.cs" Link="GuiSource\MihomoTunRoutes.cs" />
     <Compile Include="..\Consts\MainConst.cs" Link="GuiSource\MainConst.cs" />
     <Compile Include="..\Consts\MainMultilangConst.Designer.cs" Link="GuiSource\MainMultilangConst.Designer.cs" />
   </ItemGroup>

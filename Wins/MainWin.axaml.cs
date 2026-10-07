@@ -533,6 +533,18 @@ public partial class MainWin : Window
             // 代理启动后再检查证书信任状态
             _ = Task.Run(async () =>
             {
+                // Linux：浏览器读的是用户的 NSS 库，写入失败（多半是没装 libnss3-tools）
+                // 必须说出来，否则用户只看到 ERR_CERT_AUTHORITY_INVALID，无从下手。
+                if (OperatingSystem.IsLinux())
+                {
+                    if (!UserTrust.IsTrustedInNss())
+                        await MessageBoxManager.GetMessageBoxStandard(string.Empty,
+                            "无法把代理根证书写入浏览器的 NSS 信任库（~/.pki/nssdb），浏览器会继续报证书错误。请安装 libnss3-tools 后重试。",
+                            ButtonEnum.Ok).ShowWindowDialogAsync(this);
+
+                    return;
+                }
+
                 // 必须按系统域判断：Chromium/Edge 只认系统钥匙串的信任根。
                 // 用 IsTrusted()（登录或系统任一）会在只有登录域有根时误判为已信任，
                 // 从此不再弹授权框，浏览器就永久拒 TLS。
@@ -1145,25 +1157,32 @@ public partial class MainWin : Window
                 .Deserialize<Dictionary<string, object>>(ExtraMihomoConfs = await new StreamReader(mihomoConfStream).ReadToEndAsync()) ?? [];
 
             mihomoConfDict["mixed-port"] = hostsMihomoConfDict["mixed-port"] = MihomoMixedPort;
+
+            // 见 Utils/MihomoTunRoutes：不排除的话引擎的回源连接会被 auto-route 吸进 TUN 打转。
+            List<string> routeExcludeAddresses = MihomoTunRoutes.BuildRouteExcludeAddresses(
+                CealHostRulesDict.Values.Where(rules => rules is not null).SelectMany(rules => rules!).Select(rule => rule.cealHostIp));
+
             mihomoConfDict["tun"] = hostsMihomoConfDict["tun"] = new
             {
                 enable = true,
                 stack = "system",
                 autoRoute = true,
                 autoDetectInterface = true,
-                dnsHijack = new[] { "any:53", "tcp://any:53" }
+                dnsHijack = new[] { "any:53", "tcp://any:53" },
+                routeExcludeAddress = routeExcludeAddresses
             };
+            // 不配 dns.listen：:53 在 Linux 上和 systemd-resolved 抢端口（实测每次启动都是
+            // "listen udp :53: bind: address already in use"， socket 从来没开起来），
+            // 而上面 tun.dns-hijack 的 any:53 已经覆盖了劫持域名解析这条路径。
             mihomoConfDict["dns"] = new
             {
                 enable = true,
-                listen = ":53",
                 ipv6 = true,
                 nameserver = MainConst.MihomoNameServers
             };
             hostsMihomoConfDict["dns"] = new
             {
                 enable = true,
-                listen = ":53",
                 ipv6 = true
             };
 
