@@ -24,12 +24,13 @@ internal sealed class BuiltinEngine()
     private static readonly string[] HopByHopHeaders =
         ["Connection", "Keep-Alive", "Proxy-Authenticate", "Proxy-Authorization", "TE", "Trailer", "Transfer-Encoding", "Upgrade"];
 
-    // Kestrel 的 HPACK 编码器缓冲固定大小，响应头**总量**超限会抛 HPACKEncodingException
-    // 并直接掐断 HTTP/2 连接（浏览器侧 ERR_HTTP2_PROTOCOL_ERROR / ERR_CONNECTION_RESET，响应体全丢）。
-    // gemini.google.com 光 content-security-policy 就 ~19KB，加上 reporting-endpoints ~4KB，
-    // 单个值和总量都会爆；google.com.hk 的 CSP 很短所以一直正常。
-    // 这些头只影响浏览器自身的执行策略（少一条 CSP 不影响页面可用），所以按预算逐个丢弃。
-    private const int MaxRelayHeadersTotalLength = 8 * 1024;
+    // 响应头按总量边累加边丢弃，HPACK 编码器写不下时不会只丢一个头，而是整条流断掉
+    // （浏览器侧 ERR_HTTP2_PROTOCOL_ERROR / ERR_CONNECTION_RESET，响应体全丢）。
+    // 上限取 64KB：实测 Kestrel 自己不是瓶颈（单条 40KB、总量 96KB 都能完整发出去），
+    // 真正会翻车的是客户端——curl 在总量 ~100KB 处截断，Firefox 的 network.http.max-header-length
+    // 默认就是 65536。gemini.google.com 的 content-security-policy ~19KB + reporting-endpoints ~4KB
+    // 在这个预算下能原样转发；再大的量才丢。
+    private const int MaxRelayHeadersTotalLength = 64 * 1024;
 
     private readonly List<BuiltinEngineRule> _rules = [];
     private WebApplication? _app;

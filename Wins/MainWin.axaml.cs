@@ -85,9 +85,12 @@ public partial class MainWin : Window
     //}
     private async void MainWin_Loaded(object sender, RoutedEventArgs e)
     {
-        // 启动菜单栏图标助手
-        StatusBarHelper.MenuClicked += OnStatusBarMenuClicked;
-        StatusBarHelper.Start(this);
+        // 启动菜单栏图标助手（只有 macOS 有这个东西）
+        if (OperatingSystem.IsMacOS())
+        {
+            StatusBarHelper.MenuClicked += OnStatusBarMenuClicked;
+            StatusBarHelper.Start(this);
+        }
 
         // macOS 的托盘由外部 StatusBarHelper 二进制提供（csproj 只在 OSX 上编译它），
         // 其余平台只能用 Avalonia 原生托盘。两边都没有的话，点 X 隐藏就等于
