@@ -70,8 +70,13 @@ Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,Sheas Cealer 
 ; waituntilterminated 也必须等 —— 让它跑到一半就被删掉，等于留下一张没人认领的证书。
 ; 不带 --purge-user-data：用户数据（自己维护的上游规则、证书）由下面 InitializeUninstall
 ; 里问过一次，再由 usPostUninstall 那一步真的删，取消卸载时一个字节都不会少。
+;
+; 不传 --user-home：Inno 没有用户 profile 根目录的常量（{userappdata} 是 AppData\Roaming，
+; {localappdata} 是 AppData\Local，都不是 profile 根），写一个不存在的常量不是警告而是
+; 编译失败（iscc 退出码 2，整个安装包出不来）。agent 在该参数缺省时会取当前用户的 profile
+; —— 卸载器正是以这个用户的提升令牌跑的，HKCU 的自启项和 AppData 都在它名下。
 [UninstallRun]
-Filename: "{app}\Cealing-Agent.exe"; Parameters: "--uninstall --data-dir ""{userappdata}\Sheas-Cealer-Nix"" --user-home ""{userprofile}"""; WorkingDir: "{app}"; RunOnceId: "CealingAgentPurge"; Flags: waituntilterminated runhidden skipifdoesntexist
+Filename: "{app}\Cealing-Agent.exe"; Parameters: "--uninstall --data-dir ""{userappdata}\Sheas-Cealer-Nix"""; WorkingDir: "{app}"; RunOnceId: "CealingAgentPurge"; Flags: waituntilterminated runhidden skipifdoesntexist
 
 [Code]
 var

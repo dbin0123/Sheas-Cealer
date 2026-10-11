@@ -97,11 +97,24 @@ internal static class Program
         // 不 Init 时 AgentLog 只往 Console 走，正好被 dpkg / Inno 收进各自的卸载日志里。
         AgentLog.Info($"uninstall start pid={Environment.ProcessId} user={Environment.UserName} elevated={Privilege.IsElevated} dataDir={dataDir ?? "-"}");
 
+        string[] userHomes = ArgValues(args, "--user-home");
+
+        // 安装器侧不传 --user-home 时退回当前用户的 profile：Inno 没有「profile 根目录」这种常量
+        // （只有 {userappdata}=AppData\Roaming、{localappdata}=AppData\Local），而卸载器跑在被卸载
+        // 那个用户的提升令牌下，HKCU 的自启项和 AppData 里的暂存件都记在它名下。
+        if (userHomes.Length == 0)
+        {
+            string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+
+            if (home.Length > 0)
+                userHomes = [home];
+        }
+
         Uninstaller.Run(new Uninstaller.Options(
             HostsPath(),
             dataDir,
             ownerUid,
-            ArgValues(args, "--user-home"),
+            userHomes,
             ArgFlag(args, "--purge-user-data"),
             ArgValue(args, "--socket") ?? AgentPaths.SocketPath,
             AgentPaths.PidPath));
