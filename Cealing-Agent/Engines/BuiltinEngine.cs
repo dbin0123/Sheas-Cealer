@@ -24,13 +24,25 @@ internal sealed class BuiltinEngine()
     private static readonly string[] HopByHopHeaders =
         ["Connection", "Keep-Alive", "Proxy-Authenticate", "Proxy-Authorization", "TE", "Trailer", "Transfer-Encoding", "Upgrade"];
 
-    // 响应头按总量边累加边丢弃，HPACK 编码器写不下时不会只丢一个头，而是整条流断掉
+    // 响应头按总量边累加边丢弃：HPACK 编码器超限时会整条流断掉
     // （浏览器侧 ERR_HTTP2_PROTOCOL_ERROR / ERR_CONNECTION_RESET，响应体全丢）。
-    // 上限取 64KB：实测 Kestrel 自己不是瓶颈（单条 40KB、总量 96KB 都能完整发出去），
-    // 真正会翻车的是客户端——curl 在总量 ~100KB 处截断，Firefox 的 network.http.max-header-length
-    // 默认就是 65536。gemini.google.com 的 content-security-policy ~19KB + reporting-endpoints ~4KB
-    // 在这个预算下能原样转发；再大的量才丢。
+    // 上限取 64KB：真正会翻车的是客户端——curl 在总量 ~100KB 处截断，Firefox 的
+    // network.http.max-header-length 默认就是 65536。gemini.google.com 的
+    // reporting-endpoints ~4KB 一类中等体积的头在这个预算下能原样转发；
+    // 单条大到塞不进 HPACK 缓冲区的由下面更严的上限拦，不看总量。
     private const int MaxRelayHeadersTotalLength = 64 * 1024;
+
+    // 单个响应头值的上限，比总量预算更严格，而且必须单独判：
+    // Kestrel 把整个响应头块编进 new byte[_maxFrameSize] 的缓冲区，_maxFrameSize 取对端
+    // SETTINGS_MAX_FRAME_SIZE，Chrome/Edge 只宣告 16384。net8 的 HPackHeaderWriter 遇到
+    // 「缓冲区还空着、但这一条塞不下」时不是跳过这条头，而是抛 HPackEncodingException
+    // （src/Servers/Kestrel/shared/HPackHeaderWriter.cs: EncodeHeadersCore/throwIfNoneEncoded），
+    // 于是整块响应头一起作废：浏览器拿到 RST_STREAM，页面白屏。
+    // 实测（自包含 net8 运行时 + 真实 gemini.google.com/app 响应头）：单值 15KB 通过、
+    // 16KB 起抛，19764 字节的 content-security-policy 正是这条路径。.NET 10 才改成
+    // 「重新申请更大的缓冲区」，打包用的 net8 没有这个修复，所以只能在 agent 侧拦。
+    // HPACK 只在编码更短时才用 Huffman，原始长度是编码长度的上界，按它留 1KB 余量。
+    private const int MaxRelayHeaderValueLength = 15 * 1024;
 
     private readonly List<BuiltinEngineRule> _rules = [];
     private WebApplication? _app;
@@ -261,7 +273,11 @@ internal sealed class BuiltinEngine()
                     if (HopByHopHeaders.Contains(header.Key, StringComparer.OrdinalIgnoreCase))
                         continue;
 
-                    string[] values = header.Value.ToArray();
+                    string[] values = FilterRelayableValues(header.Key, header.Value);
+
+                    if (values.Length == 0)
+                        continue;
+
                     int length = header.Key.Length + values.Sum(value => value.Length);
 
                     // 单个就超预算的直接丢；累计超预算后也不再收，保持已转发的部分可用。
@@ -288,6 +304,46 @@ internal sealed class BuiltinEngine()
                     await upstreamResponse.Content.CopyToAsync(context.Response.Body, context.RequestAborted).ConfigureAwait(false);
             }
         }
+    }
+
+    // 逐值筛掉 HTTP/2 侧根本发不出去的响应头。宁可少一条头，也不能让整块头作废：
+    // 单值超过 HPACK 缓冲区 → Kestrel 抛 HPackEncodingException，整个响应头块丢失；
+    // 值里有非 ASCII/控制字符 → 赋值时抛 InvalidOperationException，整个响应变成 500。
+    // 上游返回 UTF-8 文件名（Content-Disposition）之类的情况很常见，两种都只丢不合格的那一个值。
+    internal static string[] FilterRelayableValues(string name, IEnumerable<string> values)
+    {
+        List<string> relayable = [];
+
+        foreach (string value in values)
+        {
+            if (value.Length > MaxRelayHeaderValueLength)
+            {
+                AgentLog.Warn($"drop unencodable response header '{name}' value ({value.Length} bytes, over {MaxRelayHeaderValueLength} single-value cap for Kestrel's 16KB HPACK buffer)");
+                continue;
+            }
+
+            if (!IsRelayableHeaderValue(value))
+            {
+                AgentLog.Warn($"drop response header '{name}' value (contains non-ASCII/control character)");
+                continue;
+            }
+
+            relayable.Add(value);
+        }
+
+        return [.. relayable];
+    }
+
+    // Kestrel 允许的响应头值字符只有 HTAB 与 0x20..0x7E，其余在赋值时就抛。
+    private static bool IsRelayableHeaderValue(string value)
+    {
+        foreach (char c in value)
+        {
+            if (c != '\t' && (c < ' ' || c > '~'))
+                return false;
+        }
+
+        return true;
     }
 
     private sealed class FileLoggerProvider : ILoggerProvider
