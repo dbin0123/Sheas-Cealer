@@ -54,18 +54,28 @@ internal static class HostsConf
             return;
 
         string content = File.ReadAllText(hostsPath);
+        bool changed = false;
+        int start;
 
-        int start = content.IndexOf(StartMarker, StringComparison.Ordinal);
+        // 一轮一轮清：崩溃现场可以留下「一个完整块 + 一个只写了起始标记的半块」，
+        // 只删第一个匹配到的块会剩一段伪造记录在文件里。
+        while ((start = content.IndexOf(StartMarker, StringComparison.Ordinal)) != -1)
+        {
+            int end = content.IndexOf(EndMarker, start + StartMarker.Length, StringComparison.Ordinal);
 
-        if (start == -1)
-            return;
+            // 只有起始标记、没有结束标记 = 上一任 agent 写到一半被杀。块是我们追加在文件末尾的，
+            // 所以标记之后到文件结尾全是我们的内容，必须一并清掉；
+            // 早先这里直接 return，卸载就永久留一段伪造的 hosts（用户表现为对应域名上不了网）。
+            int length = end == -1 ? content.Length - start : end + EndMarker.Length - start;
 
-        int end = content.LastIndexOf(EndMarker, StringComparison.Ordinal);
+            content = content.Remove(start, length);
+            changed = true;
+        }
 
-        if (end == -1)
+        if (!changed)
             return;
 
         File.SetAttributes(hostsPath, File.GetAttributes(hostsPath) & ~FileAttributes.ReadOnly);
-        File.WriteAllText(hostsPath, content.Remove(start, end - start + EndMarker.Length), Utf8NoBom);
+        File.WriteAllText(hostsPath, content, Utf8NoBom);
     }
 }

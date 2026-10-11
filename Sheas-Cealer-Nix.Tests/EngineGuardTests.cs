@@ -28,7 +28,7 @@ public sealed class EngineGuardTests : IDisposable
 
         Assert.NotNull(sleeper);
 
-        EngineGuard.Register(_dir, "sleeper", sleeper!, PathOf(sleeper!));
+        EngineGuard.Register(_dir, -1, "sleeper", sleeper!, PathOf(sleeper!));
 
         string file = Path.Combine(_dir, "engines", "sleeper.pid");
 
@@ -51,7 +51,7 @@ public sealed class EngineGuardTests : IDisposable
 
         int pid = spawned!.Id;
 
-        EngineGuard.Register(_dir, "sleeper", spawned, PathOf(spawned));
+        EngineGuard.Register(_dir, -1, "sleeper", spawned, PathOf(spawned));
 
         spawned.Dispose();
 
@@ -117,7 +117,7 @@ public sealed class EngineGuardTests : IDisposable
 
         Assert.NotNull(sleeper);
 
-        EngineGuard.Register(_dir, "sleeper", sleeper!, PathOf(sleeper!));
+        EngineGuard.Register(_dir, -1, "sleeper", sleeper!, PathOf(sleeper!));
 
         bool bound = WindowsProcessJob.IsMember(sleeper!.Id);
 

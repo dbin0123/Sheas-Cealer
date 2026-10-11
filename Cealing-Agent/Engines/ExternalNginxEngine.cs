@@ -44,7 +44,7 @@ internal sealed class ExternalNginxEngine(string dataDir, int ownerUid)
 
         _process = Process.Start(startInfo) ?? throw new InvalidOperationException("failed to start nginx");
 
-        EngineGuard.Register(dataDir, "nginx", _process, config.NginxBinaryPath);
+        EngineGuard.Register(dataDir, ownerUid, "nginx", _process, config.NginxBinaryPath);
 
         _process.ErrorDataReceived += (_, e) =>
         {

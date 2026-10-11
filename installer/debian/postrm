@@ -1,0 +1,110 @@
+#!/bin/sh
+# deb 卸载善后的兜底与 purge（此时 /opt/Sheas-Cealer-Nix 已被 dpkg 删掉，agent 不在了）。
+#
+# 只写纯 shell：能跑 agent 的阶段是 prerm，到这里已经没有任何属于我们的可执行文件。
+# 两段共同的原则是「只在还能确认是我们的东西时才动手」，宁可少删也不误删别的包的文件。
+set -eu
+
+APP="Sheas-Cealer-Nix"
+CERT="/usr/local/share/ca-certificates/cealing-root.crt"
+START_MARKER="# Cealing Nginx Start"
+END_MARKER="# Cealing Nginx End"
+
+# 系统信任库里的 MITM 根：prerm 没跑成（半截安装、agent 起不来、被 OOM 杀掉）时，
+# 它会被永久留在整台机器的信任链里 —— 这是卸载残留里最危险的一项，必须在这里再确认一次。
+purge_root_cert() {
+    [ -f "$CERT" ] || return 0
+
+    rm -f -- "$CERT" || true
+
+    if command -v update-ca-certificates >/dev/null 2>&1; then
+        update-ca-certificates --fresh || true
+    fi
+
+    echo "postrm: removed ${CERT} as a fallback" >&2
+}
+
+# hosts 里我们那段块。sed 的区间删在「有 Start 没有 End」时一直删到文件末尾，
+# 正好对应 agent 写到一半被杀的情况。
+purge_hosts_block() {
+    [ -f /etc/hosts ] || return 0
+    grep -q "^${START_MARKER}\$" /etc/hosts 2>/dev/null || return 0
+
+    sed -i "/^${START_MARKER}\$/,/^${END_MARKER}\$/d" /etc/hosts || true
+
+    echo "postrm: removed the ${APP} block from /etc/hosts as a fallback" >&2
+}
+
+# 真实用户 + root（sudo 直接跑 GUI 的老用法）；65534 是 nobody。
+# 只认平台约定的两个位置（${XDG_CONFIG_HOME:-~/.config} 与 ${XDG_DATA_HOME:-~/.local/share}
+# 的默认值）：dpkg 脚本里没有每个用户的 XDG 环境变量，自定义过 XDG 的用户由
+# GUI 的 `--uninstall` 负责清理。
+each_home() {
+    getent passwd 2>/dev/null \
+        | awk -F: '($3 == 0 || ($3 >= 1000 && $3 < 60000)) && $6 ~ /^\// { print $6 }'
+}
+
+# NSS 用户库（~/.pki/nssdb）：Linux 上 Chromium/Edge 只认这里，它是 GUI 以普通用户身份
+# 写进去的，包管理器完全不知道 —— prerm 没跑成时，浏览器会一直信任我们的 MITM 根。
+# 注意这里是以 root 身份动别人的库：certutil -D 会重写 cert9.db，属主可能变成 root，
+# 那会让用户之后连自己的浏览器数据库都写不了，所以先确认条目真在、事后把属主还回去。
+purge_nss() {
+    command -v certutil >/dev/null 2>&1 || return 0
+
+    for home in $(each_home); do
+        db="${home}/.pki/nssdb"
+
+        [ -d "$db" ] || continue
+
+        certutil -L -n 'Cealing Cert Root' -d "sql:${db}" >/dev/null 2>&1 || continue
+
+        certutil -D -n 'Cealing Cert Root' -d "sql:${db}" >/dev/null 2>&1 || true
+
+        chown -R "$(stat -c %u "$db"):$(stat -c %g "$db")" "$db" 2>/dev/null || true
+    done
+}
+
+# 开机自启条目（XDG autostart）：GUI 以普通用户身份写的，位置在应用目录之外，
+# remove 之后它就指向一个已经不存在的可执行文件 —— 每次登录静默失败一次。
+purge_autostart() {
+    for home in $(each_home); do
+        entry="${home}/.local/share/autostart/sheas-cealer-nix.desktop"
+
+        [ -f "$entry" ] || continue
+
+        rm -f -- "$entry" || true
+        echo "postrm: removed ${entry}" >&2
+    done
+}
+
+case "${1:-remove}" in
+    remove | failed-upgrade | deconfigure)
+        purge_root_cert
+        purge_hosts_block
+        purge_nss
+        purge_autostart
+        ;;
+
+    purge)
+        # 数据目录里有用户自己维护的上游规则和根证书私钥，只有 purge 才带走。
+        # 暂存的 root 侧二进制（可达数百 MB）也在同一个 .local/share 壳里，一起收掉。
+        for home in $(each_home); do
+            [ -d "$home" ] || continue
+
+            rm -rf -- "${home}/.config/${APP}" "${home}/.local/share/${APP}"
+        done
+
+        purge_root_cert
+        purge_hosts_block
+        purge_nss
+        purge_autostart
+        ;;
+
+    upgrade | abort-upgrade)
+        ;;
+
+    *)
+        ;;
+esac
+
+exit 0

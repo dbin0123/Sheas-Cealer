@@ -34,7 +34,7 @@ internal sealed class MihomoEngine(string dataDir, int ownerUid)
 
         _process = Process.Start(startInfo) ?? throw new InvalidOperationException("failed to start mihomo");
 
-        EngineGuard.Register(dataDir, "mihomo", _process, config.MihomoBinaryPath);
+        EngineGuard.Register(dataDir, ownerUid, "mihomo", _process, config.MihomoBinaryPath);
 
         _process.ErrorDataReceived += (_, e) =>
         {

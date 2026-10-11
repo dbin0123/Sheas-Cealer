@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 
 namespace Cealing_Core;
 
@@ -17,27 +18,29 @@ public static class AppPaths
     /// Windows <c>%AppData%\Sheas-Cealer-Nix</c>、
     /// Linux <c>${XDG_CONFIG_HOME:-$HOME/.config}/Sheas-Cealer-Nix</c>。
     /// </summary>
-    public static string DataDir
+    public static string DataDir => DataDirForHome(CurrentHome);
+
+    /// <summary>
+    /// 同一个目录规则，但按指定的家目录算。卸载时 root 侧要清理**别人**的家目录
+    /// （agent 以 root 运行，<c>Environment.GetFolderPath(UserProfile)</c> 拿到的是 /root），
+    /// 装和删必须用同一套路径，否则删不到。
+    /// </summary>
+    public static string DataDirForHome(string home)
     {
-        get
-        {
-            if (OperatingSystem.IsWindows())
-                return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppFolderName);
+        if (string.IsNullOrWhiteSpace(home))
+            throw new ArgumentException("home must not be empty", nameof(home));
 
-            if (OperatingSystem.IsMacOS())
-                return Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                    "Library", "Application Support", AppFolderName);
+        if (OperatingSystem.IsWindows())
+            return Path.Combine(home, "AppData", "Roaming", AppFolderName);
 
-            string? xdg = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME");
+        if (OperatingSystem.IsMacOS())
+            return Path.Combine(home, "Library", "Application Support", AppFolderName);
 
-            if (!string.IsNullOrWhiteSpace(xdg))
-                return Path.Combine(xdg, AppFolderName);
+        string? xdgConfig = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME");
 
-            return Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                ".config", AppFolderName);
-        }
+        return Path.Combine(
+            string.IsNullOrWhiteSpace(xdgConfig) ? Path.Combine(home, ".config") : xdgConfig,
+            AppFolderName);
     }
 
     public static string EnsureDataDir()
@@ -48,23 +51,92 @@ public static class AppPaths
     }
 
     /// <summary>
-    /// root 侧二进制的暂存目录（按版本分文件夹）。bundle 挂在 root 执行不了的文件系统上时
+    /// root 侧二进制的暂存目录根（下面按版本分子目录）。bundle 挂在 root 执行不了的文件系统上时
     /// （AppImage 的 FUSE 挂载），GUI 会把可执行文件复制到这里的真实目录再交给提权进程。
     /// </summary>
-    public static string StagedBinDir(string version)
+    public static string StagedBinRoot => StagedBinRootForHome(CurrentHome);
+
+    public static string StagedBinRootForHome(string home)
     {
         if (OperatingSystem.IsMacOS())
-            return Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                "Library", "Application Support", AppFolderName, "bin", version);
+            // macOS 暂存目录就放在数据目录里，删数据目录时一起带走。
+            return Path.Combine(DataDirForHome(home), "bin");
 
+        return Path.Combine(XdgDataHomeForHome(home), AppFolderName, "bin");
+    }
+
+    public static string StagedBinDir(string version) => Path.Combine(StagedBinRoot, version);
+
+    /// <summary>
+    /// 开机自启条目的位置（macOS 的 LaunchAgents / Linux 的 XDG autostart）。
+    /// Windows 上它是 HKCU 注册表值而不是文件，返回 null。
+    /// </summary>
+    /// <remarks>
+    /// 写入方是 GUI 的 AutoStartManager，那边按当前用户算；卸载要处理的是**别人的**家目录
+    /// （root 侧善后），所以这里必须能按任意 home 复现同一条路径。两处常量改名要一起改。
+    /// </remarks>
+    public static string? AutostartEntryForHome(string home)
+    {
+        if (OperatingSystem.IsWindows())
+            return null;
+
+        return OperatingSystem.IsMacOS()
+            ? Path.Combine(home, "Library", "LaunchAgents", "io.github.projectsheascealer.nix.plist")
+            : Path.Combine(XdgDataHomeForHome(home), "autostart", "sheas-cealer-nix.desktop");
+    }
+
+    private static string XdgDataHomeForHome(string home)
+    {
         string? xdgData = Environment.GetEnvironmentVariable("XDG_DATA_HOME");
 
-        string root = string.IsNullOrWhiteSpace(xdgData)
-            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "share")
-            : xdgData;
+        return string.IsNullOrWhiteSpace(xdgData) ? Path.Combine(home, ".local", "share") : xdgData;
+    }
 
-        return Path.Combine(root, AppFolderName, "bin", version);
+    private static string CurrentHome => Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+
+    /// <summary>
+    /// 删除暂存的 root 侧二进制（可达数百 MB）。
+    /// </summary>
+    public static void DeleteStagedBin() => DeleteStagedBin(CurrentHome);
+
+    public static void DeleteStagedBin(string home)
+    {
+        // Windows 上没有暂存这套机制（BinaryStager 只在 root 被 bundle 的文件系统挡住时才复制），
+        // 而 StagedBinRootForHome 的默认分支是 XDG 形状的，在 Windows 上没有任何意义。
+        if (OperatingSystem.IsWindows())
+            return;
+
+        string bin = StagedBinRootForHome(home);
+
+        if (Directory.Exists(bin))
+            Directory.Delete(bin, recursive: true);
+
+        // Linux 上暂存目录独占 ${XDG_DATA_HOME}/Sheas-Cealer-Nix，删完 bin 只剩空壳；
+        // macOS 的暂存嵌在数据目录里，那个壳就是用户的配置目录本身，绝不能碰。
+        string? parent = Path.GetDirectoryName(bin);
+
+        if (!OperatingSystem.IsMacOS()
+            && parent is not null
+            && string.Equals(Path.GetFileName(parent), AppFolderName, StringComparison.OrdinalIgnoreCase)
+            && Directory.Exists(parent)
+            && !Directory.EnumerateFileSystemEntries(parent).Any())
+            Directory.Delete(parent);
+    }
+
+    /// <summary>
+    /// 删除本应用的目录（数据目录或暂存目录根）。
+    /// 只允许删以 <see cref="AppFolderName"/> 结尾的路径：卸载入口的调用方（安装包脚本、
+    /// 手敲的 --user-home）传错路径时这里必须拒绝，而不是把别人的目录连锅端走。
+    /// </summary>
+    public static void DeleteAppFolder(string path)
+    {
+        string trimmed = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
+
+        if (!string.Equals(Path.GetFileName(trimmed), AppFolderName, StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException($"refuse to delete {trimmed}: not a {AppFolderName} folder", nameof(path));
+
+        if (Directory.Exists(trimmed))
+            Directory.Delete(trimmed, recursive: true);
     }
 
     /// <summary>

@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace Cealing_Agent;
 
-internal sealed class AgentServer(string socketPath, int ownerUid, EngineSupervisor supervisor, string configPath, TimeSpan? ownerLeaseDeadline = null) : IAsyncDisposable
+internal sealed class AgentServer(string socketPath, int ownerUid, EngineSupervisor supervisor, string configPath, string dataDir, string hostsPath, TimeSpan? ownerLeaseDeadline = null) : IAsyncDisposable
 {
     private readonly Socket _listener = new(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
     private readonly CancellationTokenSource _shutdown = new();
@@ -301,6 +301,25 @@ internal sealed class AgentServer(string socketPath, int ownerUid, EngineSupervi
                 case AgentCommand.Stop:
                 case AgentCommand.Cleanup:
                     await supervisor.StopAsync().ConfigureAwait(false);
+
+                    return Ok();
+
+                case AgentCommand.Uninstall:
+                    // 卸载：先按常规停引擎（带走 mihomo/nginx 子进程），再做「不看内存标记」的幂等清理，
+                    // 最后自己退出 —— 包都被删了还留一个监听 socket 的 root 进程没有意义。
+                    // 数据目录里的用户文件由 GUI 以用户身份自己删（这里已经把目录归还给它了）。
+                    await supervisor.StopAsync().ConfigureAwait(false);
+
+                    Uninstaller.Run(new Uninstaller.Options(
+                        hostsPath,
+                        dataDir,
+                        ownerUid,
+                        [],
+                        PurgeUserData: false,
+                        SocketPath: socketPath,
+                        PidPath: AgentPaths.PidPath));
+
+                    await RetireOnceAsync("uninstall command").ConfigureAwait(false);
 
                     return Ok();
 

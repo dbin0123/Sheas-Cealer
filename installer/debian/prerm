@@ -1,0 +1,56 @@
+#!/bin/sh
+# deb 卸载善后（remove / purge 都会走到这里，此时 /opt/Sheas-Cealer-Nix 还在）。
+#
+# 真正的清理只有一份实现：agent 的 --uninstall（见 Cealing-Agent/Uninstaller.cs）。
+# 这个脚本只负责两件 dpkg 才知道的事：
+#   1. 找出机器上有哪些家目录要处理（agent 以 root 跑，猜不到用户是谁）；
+#   2. 无论清理成功与否都退出 0 —— 善后失败绝不能让 apt 报「卸载失败」而放弃删包，
+#      那会留下一个既没卸干净、又卸不掉的状态。postrm 还有一道纯 shell 的兜底。
+#
+# 这里刻意不删用户数据目录：prerm 收到的参数对 `apt remove` 和 `apt purge` 都是
+# remove，区分不开；数据目录由 postrm 的 purge 分支处理，保持 Debian 的 remove/purge 语义。
+set -eu
+
+APP="Sheas-Cealer-Nix"
+AGENT="/opt/${APP}/Cealing-Agent"
+
+# upgrade / deconfigure / failed-*：不拆机器级状态。升级时旧 agent 会被新包覆盖，
+# 但用户期望伪造继续生效、证书继续有效；这里拆了等于升级一次就失效一次。
+case "${1:-remove}" in
+    remove)
+        ;;
+    *)
+        exit 0
+        ;;
+esac
+
+if [ ! -x "$AGENT" ]; then
+    # 半截安装（包内容缺失）。把消息留给 dpkg 日志，postrm 会做纯 shell 兜底。
+    echo "prerm: ${AGENT} not executable, skipping the agent-side purge" >&2
+    exit 0
+fi
+
+# 机器级善后先单独跑一次（不带 --data-dir）：即使下面按用户的循环一个都没匹配上，
+# hosts、系统信任根、/tmp 上的 socket 和 pid 也已经被还原了。
+# 每一步都幂等，后面按用户再跑一遍只是重复确认，没有副作用。
+"$AGENT" --uninstall </dev/null >/dev/null 2>&1 || true
+
+# 真实用户（uid >= 1000）+ root（老用法：sudo 直接跑 GUI，暂存目录在 /root 下）。
+# 65534 是 nobody，它的家目录不是任何人的。
+getent passwd 2>/dev/null \
+    | awk -F: '($3 == 0 || ($3 >= 1000 && $3 < 60000)) && $6 ~ /^\// { print $3 " " $6 }' \
+    | while read -r uid home; do
+        [ -d "$home" ] || continue
+
+        # --user-home 让 agent 用 AppPaths 自己算出版暂存目录（可达数百 MB），
+        # 不在这儿手写路径：Linux 上它跟 XDG_DATA_HOME 走，猜的会删不到。
+        # --data-dir/--owner-uid 把它留下的 root 属主文件归还给用户，
+        # 否则用户自己 rm 自己的配置目录会停在 engines/ 上。
+        "$AGENT" --uninstall \
+            --data-dir "${home}/.config/${APP}" \
+            --owner-uid "$uid" \
+            --user-home "$home" \
+            </dev/null >/dev/null 2>&1 || true
+    done
+
+exit 0

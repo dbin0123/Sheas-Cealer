@@ -26,7 +26,7 @@ internal static class EngineGuard
     /// <summary>
     /// 登记一个刚启动的引擎。写失败绝不能影响引擎本身：登记只是给「下次开机清扫」留线索。
     /// </summary>
-    internal static void Register(string dataDir, string name, Process process, string binaryPath)
+    internal static void Register(string dataDir, int ownerUid, string name, Process process, string binaryPath)
     {
         // 先让内核负责（Windows），再做记录，顺序反过来的话中途抛错就两头都没保住
         WindowsProcessJob.Assign(process.Id);
@@ -35,9 +35,14 @@ internal static class EngineGuard
         {
             Directory.CreateDirectory(Dir(dataDir));
 
-            File.WriteAllText(
-                Path.Combine(Dir(dataDir), name + ".pid"),
-                $"{process.Id}{Environment.NewLine}{process.ProcessName}{Environment.NewLine}{binaryPath}");
+            string file = Path.Combine(Dir(dataDir), name + ".pid");
+
+            File.WriteAllText(file, $"{process.Id}{Environment.NewLine}{process.ProcessName}{Environment.NewLine}{binaryPath}");
+
+            // engines/ 和登记文件都是 root 建的。不归还的话，用户删自己的数据目录会停在
+            // engines/ 上（Permission denied），卸载残留就永远清不掉。
+            OwnedFile.HandOver(Dir(dataDir), ownerUid);
+            OwnedFile.HandOver(file, ownerUid);
         }
         catch (Exception ex)
         {

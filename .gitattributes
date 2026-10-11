@@ -69,3 +69,7 @@
 ###############################################################################
 *.sh       text eol=lf
 *.desktop  text eol=lf
+# dpkg 的维护脚本没有扩展名，*  的 text=auto 在 Windows 检出时会带 CRLF，
+# shebang 变成 "#!/bin/sh\r" 直接 ENOEXEC。
+prerm      text eol=lf
+postrm     text eol=lf

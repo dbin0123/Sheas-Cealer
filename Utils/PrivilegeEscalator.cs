@@ -121,6 +121,65 @@ internal static class PrivilegeEscalator
     internal static IReadOnlyList<string> BuildWindowsArgs(string socketPath, string configPath, string appDir, string dataDir, string uid) =>
         ["--socket", socketPath, "--config", configPath, "--app-dir", appDir, "--data-dir", dataDir, "--owner-uid", uid];
 
+    /// <summary>
+    /// 一次性提权执行 `Cealing-Agent --uninstall`（前台等它跑完）。
+    /// 与 Launch() 的区别正在于「前台 + 等结果」：卸载清理必须看到退出码，
+    /// 而常驻 agent 才需要甩到后台。没有活 agent（或旧 agent 不认 uninstall 命令）时走这条。
+    /// </summary>
+    internal static int RunElevatedUninstall(string agentPath, string dataDir)
+    {
+        ProcessStartInfo startInfo = new() { UseShellExecute = false };
+
+        if (OperatingSystem.IsWindows())
+        {
+            startInfo.FileName = agentPath;
+
+            foreach (string arg in new[] { "--uninstall", "--data-dir", dataDir, "--owner-uid", "0" })
+                startInfo.ArgumentList.Add(arg);
+
+            // 本进程已经是管理员就直接跑，否则只给这一次执行弹 UAC。
+            if (!IsElevated)
+            {
+                startInfo.UseShellExecute = true;
+                startInfo.Verb = "RunAs";
+            }
+        }
+        else
+        {
+            string command = string.Join(' ',
+                ShellQuote(agentPath),
+                "--uninstall",
+                "--data-dir", ShellQuote(dataDir),
+                "--owner-uid", ShellQuote(CurrentUid));
+
+            // macOS 的 do shell script 本身就经 /bin/sh，授权点完密码立刻返回；
+            // pkexec 没有 shell，必须显式 sh -c 才吃得到引号语义。
+            switch (CurrentPlatform)
+            {
+                case "macos":
+                    startInfo.FileName = "osascript";
+                    startInfo.ArgumentList.Add("-e");
+                    startInfo.ArgumentList.Add($"do shell script \"{AppleScriptEscape(command)}\" with administrator privileges");
+                    break;
+                default:
+                    startInfo.FileName = "pkexec";
+                    startInfo.ArgumentList.Add("sh");
+                    startInfo.ArgumentList.Add("-c");
+                    startInfo.ArgumentList.Add(command);
+                    break;
+            }
+        }
+
+        using Process? process = Process.Start(startInfo);
+
+        if (process is null)
+            return -1;
+
+        process.WaitForExit(180_000);
+
+        return process.HasExited ? process.ExitCode : -1;
+    }
+
     // owner uid 必须由 GUI 报给 agent：agent 以 root 运行，它自己的 euid 不是主人。
     // 拿不到就返回 "-1"（未知），绝不能返回 "0" —— 那会让 agent 把 socket chown 给 root，
     // 普通用户权限的 GUI 连不上，只能反复再拉一个 agent 出来（进程堆叠 + 全都绑不上）。

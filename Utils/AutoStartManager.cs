@@ -65,8 +65,13 @@ internal static class AutoStartManager
         Environment.GetEnvironmentVariable("APPIMAGE") is { Length: > 0 } appImagePath ? appImagePath :
         Environment.ProcessPath ?? throw new InvalidOperationException("Cannot resolve the executable path.");
 
-    private static string MacPlistPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library", "LaunchAgents", $"{MacBundleId}.plist");
-    private static string LinuxDesktopPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "autostart", "sheas-cealer-nix.desktop");
+    private static string MacPlistPath => AutostartEntry!;
+    private static string LinuxDesktopPath => AutostartEntry!;
+
+    // 条目位置只有一份定义（Cealing_Core.AppPaths）：卸载侧要按**别人的**家目录删同一条路径，
+    // 这里再算一遍就会变成「装得上、删不掉」。UninstallPurgeTests 里有一条断言钉住两者一致。
+    private static string? AutostartEntry =>
+        Cealing_Core.AppPaths.AutostartEntryForHome(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
 
     private static string MacPlistContent
     {

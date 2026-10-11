@@ -212,7 +212,8 @@ internal sealed class AgentServerFixture : IAsyncDisposable
         EngineSupervisor supervisor = new(appDir, dataDir ?? appDir, 0, Path.Combine(appDir, "hosts-test"));
 
         // ownerUid 在 v1 只写日志不参与鉴权，测试里传 0 即可（不要用 Environment.Getuid，net8.0 无此 API）
-        AgentServer server = new(socketPath, 0, supervisor, configPath, ownerLeaseDeadline);
+        // dataDir / hostsPath 都指到测试自己的临时目录：uninstall 命令会照它们清理，不能碰真实的 /etc/hosts。
+        AgentServer server = new(socketPath, 0, supervisor, configPath, dataDir ?? appDir, Path.Combine(appDir, "hosts-test"), ownerLeaseDeadline);
 
         server.Start();
 

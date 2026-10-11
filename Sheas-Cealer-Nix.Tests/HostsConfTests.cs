@@ -62,6 +62,52 @@ public class HostsConfTests : IDisposable
         Assert.Equal("127.0.0.1 localhost\n", File.ReadAllText(TempHosts));
     }
 
+    // 崩溃现场可以留下「一个完整块 + 一个只有起始标记的半块」，也可能留下好几个块
+    // （旧版按标记追加、新版的 Remove 只清第一个匹配到的）。卸载必须一次全清掉。
+    [Fact]
+    public void RemoveStripsEveryBlockNotJustTheFirst()
+    {
+        File.WriteAllText(TempHosts,
+            "127.0.0.1 localhost\n"
+            + HostsConf.BuildBlock([("a.net", false)])
+            + "middle\n"
+            + HostsConf.BuildBlock([("b.net", false)]));
+
+        HostsConf.Remove(TempHosts);
+
+        string content = File.ReadAllText(TempHosts);
+
+        Assert.DoesNotContain(HostsConf.StartMarker, content);
+        Assert.DoesNotContain("127.0.0.1 a.net", content);
+        Assert.DoesNotContain("127.0.0.1 b.net", content);
+        Assert.Contains("middle", content);
+    }
+
+    [Fact]
+    public void RemoveClearsHalfWrittenBlockToEof()
+    {
+        // 只有起始标记、没有结束标记 = agent 写到一半被 SIGKILL。伪造条目全在标记之后。
+        File.WriteAllText(TempHosts,
+            "127.0.0.1 localhost\n"
+            + HostsConf.StartMarker + "\n127.0.0.1 a.net\n127.0.0.1 www.b.net\n");
+
+        HostsConf.Remove(TempHosts);
+
+        Assert.Equal("127.0.0.1 localhost\n", File.ReadAllText(TempHosts));
+    }
+
+    [Fact]
+    public void RemoveClearsHalfWrittenBlockAfterACompleteOne()
+    {
+        File.WriteAllText(TempHosts,
+            HostsConf.BuildBlock([("a.net", false)])
+            + HostsConf.StartMarker + "\n127.0.0.1 b.net\n");
+
+        HostsConf.Remove(TempHosts);
+
+        Assert.DoesNotContain(HostsConf.StartMarker, File.ReadAllText(TempHosts));
+    }
+
     [Fact]
     public void AppendIsIdempotent()
     {

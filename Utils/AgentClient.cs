@@ -123,4 +123,8 @@ internal sealed class AgentClient(string socketPath)
     internal Task<AgentResponse> StopAsync() => SendAsync(new AgentRequest { Command = AgentCommand.Stop }, TimeSpan.FromSeconds(30));
     internal Task<AgentResponse> CleanupAsync() => SendAsync(new AgentRequest { Command = AgentCommand.Cleanup }, TimeSpan.FromSeconds(30));
     internal Task<AgentResponse> ShutdownAsync() => SendAsync(new AgentRequest { Command = AgentCommand.Shutdown }, TimeSpan.FromSeconds(30));
+
+    // 卸载：让持有特权的 agent 收掉系统残留（根证书、hosts、/tmp 的 socket 与 pid）并退出。
+    // 给足时间，证书清理要走 update-ca-certificates / certutil。
+    internal Task<AgentResponse> UninstallAsync() => SendAsync(new AgentRequest { Command = AgentCommand.Uninstall }, TimeSpan.FromSeconds(60));
 }

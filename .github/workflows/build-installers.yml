@@ -366,6 +366,11 @@ jobs:
           cp Sheas-Cealer-Nix-Logo.png "$STAGE/usr/share/icons/hicolor/256x256/apps/sheas-cealer-nix.png"
           printf 'Package: sheas-cealer-nix\nVersion: %s\nArchitecture: %s\nMaintainer: Space Time\nInstalled-Size: %s\nSection: utils\nPriority: optional\nDescription: SNI spoofing tool\n Just Ceal It\n' \
             "$VERSION" "$DEB_ARCH" "$(du -sk "$STAGE/opt" | cut -f1)" > "$STAGE/DEBIAN/control"
+          # 卸载善后脚本：deb 里必须带，否则 apt remove/purge 只会删文件，
+          # 系统信任根、hosts 段、root 属主的暂存二进制（数百 MB）全留在机器上。
+          # 755 是 dpkg 的硬要求（维护脚本不可执行会让整个卸载报 ENOEXEC 失败）。
+          cp installer/debian/prerm installer/debian/postrm "$STAGE/DEBIAN/"
+          chmod 755 "$STAGE/DEBIAN/prerm" "$STAGE/DEBIAN/postrm"
           dpkg-deb --build --root-owner-group "$STAGE" "$DEB"
           rm -rf "$STAGE"
 

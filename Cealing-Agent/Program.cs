@@ -14,6 +14,11 @@ internal static class Program
 {
     private static async Task<int> Main(string[] args)
     {
+        // 一次性清理模式：给安装包脚本（deb prerm / Inno 卸载钩子）和手动善后用的。
+        // 不建 socket、不进事件循环，跑完就退出；每一步幂等，重复执行没有副作用。
+        if (ArgFlag(args, "--uninstall"))
+            return Uninstall(args);
+
         string? socketPath = ArgValue(args, "--socket");
         string? configPath = ArgValue(args, "--config");
         string? appDir = ArgValue(args, "--app-dir");
@@ -27,6 +32,7 @@ internal static class Program
         if (socketPath is null || configPath is null || appDir is null || ownerUidRaw is null)
         {
             Console.Error.WriteLine("usage: Cealing-Agent --socket <path> --config <path> --app-dir <dir> --data-dir <dir> --owner-uid <uid>");
+            Console.Error.WriteLine("       Cealing-Agent --uninstall [--data-dir <dir> --owner-uid <uid> --user-home <dir> ...] [--purge-user-data]");
             return 2;
         }
 
@@ -41,9 +47,17 @@ internal static class Program
         // 目录可能还不存在（GUI 侧一般先建好，这里兜底；GUI 以普通用户运行时也能建）
         Directory.CreateDirectory(dataDir);
 
-        // nginx 要求 logs/ 与 temp/ 存在才能以 -p dataDir 启动
-        Directory.CreateDirectory(Path.Combine(dataDir, "logs"));
-        Directory.CreateDirectory(Path.Combine(dataDir, "temp"));
+        // nginx 要求 logs/ 与 temp/ 存在才能以 -p dataDir 启动。
+        // 这几个目录是 root 建的，不归还给用户的话，用户删自己的数据目录会删到一半
+        // 停在 engines/ 上（Permission denied），卸载残留就永远清不掉。
+        foreach (string sub in new[] { "logs", "temp" })
+        {
+            string path = Path.Combine(dataDir, sub);
+
+            Directory.CreateDirectory(path);
+
+            OwnedFile.HandOver(path, ownerUid);
+        }
 
         AgentLog.Init(AgentPaths.LogPath(dataDir));
 
@@ -66,6 +80,43 @@ internal static class Program
         }
     }
 
+    // 卸载清理入口。刻意做成「一次调用只做善后」：安装包脚本（deb 的 prerm、Inno 的
+    // [UninstallRun]）在文件被删掉之前调它，普通用户想手动善后也能直接跑。
+    // 全程 best-effort、幂等，退出码恒为 0：清理失败不该让卸载器报「卸载失败」然后放弃后面的步骤。
+    private static int Uninstall(string[] args)
+    {
+        string? dataDir = ArgValue(args, "--data-dir");
+        string? ownerUidRaw = ArgValue(args, "--owner-uid");
+
+        if (!int.TryParse(ownerUidRaw, out int ownerUid))
+            ownerUid = -1;
+
+        // 刻意不 AgentLog.Init：这条一次性路径的目的是删残留，自己再写出一个 root 属主的
+        // /tmp/cealing-agent.log 就成了新的残留；而 Init 是「重写」而非追加，把常驻 agent
+        // 的日志（崩溃现场唯一的证据）截成一行也是不能接受的。
+        // 不 Init 时 AgentLog 只往 Console 走，正好被 dpkg / Inno 收进各自的卸载日志里。
+        AgentLog.Info($"uninstall start pid={Environment.ProcessId} user={Environment.UserName} elevated={Privilege.IsElevated} dataDir={dataDir ?? "-"}");
+
+        Uninstaller.Run(new Uninstaller.Options(
+            HostsPath(),
+            dataDir,
+            ownerUid,
+            ArgValues(args, "--user-home"),
+            ArgFlag(args, "--purge-user-data"),
+            ArgValue(args, "--socket") ?? AgentPaths.SocketPath,
+            AgentPaths.PidPath));
+
+        AgentLog.Info("uninstall done");
+
+        return 0;
+    }
+
+    // /etc/hosts 在 macOS/Linux 上同路径；Windows 在 System32\drivers\etc\hosts
+    private static string HostsPath() =>
+        OperatingSystem.IsWindows()
+            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "drivers", "etc", "hosts")
+            : "/etc/hosts";
+
     private static async Task RunAsync(string socketPath, int ownerUid, string configPath, string appDir, string dataDir)
     {
         // 先扫上一轮的孤儿，再谈启动：上一任 agent 被 SIGKILL/崩溃带走时，它起的 mihomo/nginx
@@ -79,12 +130,7 @@ internal static class Program
             AgentLog.Warn($"orphan engine reaping failed: {ex.Message}");
         }
 
-        // /etc/hosts 在 macOS/Linux 上同路径；Windows 在 System32\drivers\etc\hosts
-        string hostsPath = OperatingSystem.IsWindows() 
-            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "drivers", "etc", "hosts")
-            : "/etc/hosts";
-
-        EngineSupervisor supervisor = new(appDir, dataDir, ownerUid, hostsPath);
+        EngineSupervisor supervisor = new(appDir, dataDir, ownerUid, HostsPath());
 
         // pid 文件只是排障线索，不是必需品：写失败（例如上一次 root 运行留下的同名文件、
         // 或临时目录权限问题）绝不能拖垮 agent，所以这里 best-effort。
@@ -97,7 +143,7 @@ internal static class Program
             AgentLog.Warn($"could not write pid file {AgentPaths.PidPath}: {ex.Message}");
         }
 
-        await using AgentServer server = new(socketPath, ownerUid, supervisor, configPath);
+        await using AgentServer server = new(socketPath, ownerUid, supervisor, configPath, dataDir, HostsPath());
 
         server.Start();
 
@@ -190,5 +236,19 @@ internal static class Program
         int index = Array.FindIndex(args, arg => arg.Equals(name, StringComparison.Ordinal));
 
         return index != -1 && index + 1 < args.Length ? args[index + 1] : null;
+    }
+
+    private static bool ArgFlag(string[] args, string name) =>
+        Array.Exists(args, arg => arg.Equals(name, StringComparison.Ordinal));
+
+    private static string[] ArgValues(string[] args, string name)
+    {
+        List<string> values = [];
+
+        for (int i = 0; i + 1 < args.Length; i++)
+            if (args[i].Equals(name, StringComparison.Ordinal))
+                values.Add(args[i + 1]);
+
+        return [.. values];
     }
 }
