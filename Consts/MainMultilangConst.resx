@@ -381,4 +381,13 @@
   <data name="LogWinEmptyContent" xml:space="preserve">
     <value>No logs yet. The agent log will appear here after global cealing starts</value>
   </data>
+  <data name="SettingsModeButtonJavaTrustContent" xml:space="preserve">
+    <value>Java Trust</value>
+  </data>
+  <data name="SettingsBoxJavaTrustToolTip" xml:space="preserve">
+    <value>Extra Java trust stores: cacerts files or JDK/JBR home dirs, separated by ; — for runtimes auto-discovery cannot find</value>
+  </data>
+  <data name="SettingsFunctionButtonJavaTrustContent" xml:space="preserve">
+    <value>Clear</value>
+  </data>
 </root>

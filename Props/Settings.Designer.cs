@@ -153,5 +153,16 @@ namespace Sheas_Cealer_Nix.Props {
                 this["IsAutoStart"] = value;
             }
         }
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string JavaTrustPaths {
+            get {
+                return ((string)(this["JavaTrustPaths"]));
+            }
+            set {
+                this["JavaTrustPaths"] = value;
+            }
+        }
     }
 }

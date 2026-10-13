@@ -31,6 +31,16 @@ internal static class DataMigration
         "config.yaml"
     ];
 
+    // 应用自带、随版本走的只读规则文件。语义和上面那份清单相反：那几个是「数据目录里有了就不动」，
+    // 这几个每次启动都从 bundle 整份覆盖回去。
+    //
+    // 为什么要单独一个文件：Cealing-Host-L.json 是用户自己的，Cealing-Host-U.json 由远程更新覆盖，
+    // 内置规则塞进这两份里的任何一份，都会在用户编辑本地规则或更新上游规则时被冲掉。
+    private static readonly string[] BundledFileNames =
+    [
+        "Cealing-Host-B.json"
+    ];
+
     internal static void Run()
     {
         try
@@ -43,6 +53,7 @@ internal static class DataMigration
             Directory.CreateDirectory(Consts.MainConst.NginxTempPath);
 
             Migrate(appDir, dataDir);
+            RefreshBundled(appDir, dataDir);
         }
         catch (Exception ex)
         {
@@ -65,6 +76,33 @@ internal static class DataMigration
         // Cealing-Host-*.json 用户自建的规则也要搬（本地 Host-L 已在上面处理）
         foreach (string legacy in Directory.EnumerateFiles(appDir, "Cealing-Host-*.json"))
             TryCopy(legacy, Path.Combine(dataDir, Path.GetFileName(legacy)));
+    }
+
+    internal static void RefreshBundled(string appDir, string dataDir)
+    {
+        // 同 Migrate：bundle 就是数据目录时覆盖自己只会把刚读出来的字节再写回去
+        if (AppPaths.Normalize(appDir) == AppPaths.Normalize(dataDir))
+            return;
+
+        foreach (string name in BundledFileNames)
+        {
+            string bundled = Path.Combine(appDir, name);
+            string target = Path.Combine(dataDir, name);
+
+            if (!File.Exists(bundled))
+                continue;
+
+            try
+            {
+                File.Copy(bundled, target, overwrite: true);
+            }
+            catch (Exception ex)
+            {
+                // 刷不动（数据目录只读、文件被别的实例占着）就用上一次那份内置规则，
+                // 反正它只是少了几条域名，不该挡住启动。
+                Console.Error.WriteLine($"bundled rule refresh skipped {name}: {ex.Message}");
+            }
+        }
     }
 
     private static void TryCopy(string legacy, string target)

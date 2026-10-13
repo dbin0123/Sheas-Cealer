@@ -44,6 +44,11 @@ internal static class Uninstaller
 
         Quiet("purge root cert", () => TrustStore.Purge(EngineSupervisor.Platform));
 
+        // 系统信任库拆干净了不等于 Java 侧干净：keytool 装进 cacerts 的那份是另一个库，
+        // 漏掉它就等于在机器上永久留了一张可信 MITM 根，而且比系统域那份更难被发现。
+        // 用户在设置页手填的库只记在代理配置文件里，所以趁配置还没被删先读出来一起清。
+        Quiet("purge java trust stores", () => JavaTrust.Purge(EngineSupervisor.Platform, options.UserHomes, ConfiguredJavaTrustPaths(options.DataDir)));
+
         Quiet("remove runtime files", () => RemoveRuntimeFiles(options.SocketPath, options.PidPath));
 
         if (options.DataDir is not null)
@@ -51,6 +56,31 @@ internal static class Uninstaller
 
         foreach (string home in options.UserHomes)
             Quiet($"purge files under {home}", () => PurgeUserFiles(home, options.OwnerUid, options.PurgeUserData));
+    }
+
+    // 手填路径只存在于代理配置文件里（agent 没有别的途径知道用户填了什么）。
+    // 读不出来就按空处理：自动发现那批照清，最坏是用户自己指的那个库留了一张根证书，
+    // 比让卸载整步失败好。
+    private static IReadOnlyList<string> ConfiguredJavaTrustPaths(string? dataDir)
+    {
+        if (dataDir is null)
+            return [];
+
+        try
+        {
+            string configPath = AgentPaths.ConfigPath(dataDir);
+
+            if (!File.Exists(configPath))
+                return [];
+
+            return AgentJson.Deserialize<ProxyConfig>(File.ReadAllText(configPath))?.JavaTrustPaths ?? [];
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"could not read configured java trust paths: {ex.Message}");
+
+            return [];
+        }
     }
 
     // 卸载时正在运行的 agent 必须先带走：它握的主人租约一断就会自己跑一遍清理，

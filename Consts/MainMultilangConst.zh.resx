@@ -381,4 +381,13 @@
   <data name="LogWinEmptyContent" xml:space="preserve">
     <value>暂无日志，启动全局伪造后这里会显示 agent 日志</value>
   </data>
+  <data name="SettingsModeButtonJavaTrustContent" xml:space="preserve">
+    <value>Java 信任库</value>
+  </data>
+  <data name="SettingsBoxJavaTrustToolTip" xml:space="preserve">
+    <value>补充 Java 信任库路径：cacerts 文件或 JDK/JBR 根目录，多个用 ; 分隔。自动发现找不到的运行时（例如 IDEA 自带的 JBR）填在这里</value>
+  </data>
+  <data name="SettingsFunctionButtonJavaTrustContent" xml:space="preserve">
+    <value>清空</value>
+  </data>
 </root>

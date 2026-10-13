@@ -22,7 +22,13 @@ internal static class MihomoTunRoutes
 
         foreach (string? raw in upstreamIps)
         {
-            if (!IPAddress.TryParse(raw?.Trim(), out IPAddress? address))
+            // 上游 Cealing-Host 把 IPv6 源站写成带方括号的形态（`[2a01:4f8:c2c:123f:64:5:2cf2:0da1]`，
+            // claude.ai / netflix / spotify / yahoo 那几条都是），因为外部 nginx 的 proxy_pass 就吃这个写法。
+            // IPAddress.TryParse 不认方括号，于是这些源站一条都进不了 route-exclude-address：
+            // 引擎的回源被 auto-route 重新塞回 TUN，再被 mihomo 的 hosts 映射回 127.0.0.1，成了自己连自己的环。
+            string origin = raw?.Trim().TrimStart('[').TrimEnd(']') ?? string.Empty;
+
+            if (!IPAddress.TryParse(origin, out IPAddress? address))
                 continue;
 
             // 环回地址不经过 TUN，排除它没有意义（规则里大量 IP 就是 127.0.0.1）。

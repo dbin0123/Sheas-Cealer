@@ -19,6 +19,8 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <!-- MihomoConfText 用 YamlDotNet 解析用户的 config.yaml，版本策略跟 GUI 项目一致（浮动）。 -->
+    <PackageReference Include="YamlDotNet" Version="*" />
   </ItemGroup>
 
   <ItemGroup>
@@ -43,6 +45,7 @@
     <Compile Include="..\Utils\LogTail.cs" Link="GuiSource\LogTail.cs" />
     <Compile Include="..\Utils\MihomoDownloader.cs" Link="GuiSource\MihomoDownloader.cs" />
     <Compile Include="..\Utils\MihomoTunRoutes.cs" Link="GuiSource\MihomoTunRoutes.cs" />
+    <Compile Include="..\Utils\MihomoConfText.cs" Link="GuiSource\MihomoConfText.cs" />
     <Compile Include="..\Consts\MainConst.cs" Link="GuiSource\MainConst.cs" />
     <Compile Include="..\Consts\MainMultilangConst.Designer.cs" Link="GuiSource\MainMultilangConst.Designer.cs" />
   </ItemGroup>

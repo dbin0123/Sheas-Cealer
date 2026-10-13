@@ -51,6 +51,8 @@ internal partial class MainPres : GlobalPres
 
         // 构造函数里的赋值不应触发一次无意义的写盘，只有设置界面里的改动才持久化。
         NginxEngineModeLoaded = true;
+
+        JavaTrustPaths = !string.IsNullOrWhiteSpace(Settings.Default.JavaTrustPaths) ? Settings.Default.JavaTrustPaths : string.Empty;
     }
 
     private bool NginxEngineModeLoaded;
@@ -117,6 +119,25 @@ internal partial class MainPres : GlobalPres
 
     [ObservableProperty]
     private string resolvedNginxPath = string.Empty;
+
+    // 自动发现找不到的 Java 运行时（IDEA 自带 JBR 常放在用户目录之外）由用户补在这里。
+    // 这个字段和 BrowserPath 那几个不同：那几位历史上没接通持久化，这一位从第一天起就得存住，
+    // 否则每次重启都要重填一遍 cacerts 路径。
+    [ObservableProperty]
+    private string javaTrustPaths = string.Empty;
+    partial void OnJavaTrustPathsChanged(string value)
+    {
+        string saved = Settings.Default.JavaTrustPaths ?? string.Empty;
+        if (value == saved)
+            return;
+
+        try
+        {
+            Settings.Default.JavaTrustPaths = value;
+            Settings.Default.Save();
+        }
+        catch { }
+    }
 
     internal void RefreshProxyEngine()
     {

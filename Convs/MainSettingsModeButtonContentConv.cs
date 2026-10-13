@@ -16,7 +16,8 @@ internal class MainSettingsModeButtonContentConv : IValueConverter
             MainConst.SettingsMode.BrowserPathMode => MainConst.SettingsModeButtonUpstreamUrlContent,
             MainConst.SettingsMode.UpstreamUrlMode => MainConst.SettingsModeButtonExtraArgsContent,
             MainConst.SettingsMode.ExtraArgsMode => MainConst.SettingsModeButtonNginxEngineContent,
-            MainConst.SettingsMode.NginxEngineMode => MainConst.SettingsModeButtonBrowserPathContent,
+            MainConst.SettingsMode.NginxEngineMode => MainConst.SettingsModeButtonJavaTrustContent,
+            MainConst.SettingsMode.JavaTrustMode => MainConst.SettingsModeButtonBrowserPathContent,
             _ => throw new NotImplementedException()
         };
     }

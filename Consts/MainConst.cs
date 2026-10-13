@@ -11,7 +11,7 @@ namespace Sheas_Cealer_Nix.Consts;
 internal abstract partial class MainConst : MainMultilangConst
 {
     internal enum SettingsMode
-    { BrowserPathMode, UpstreamUrlMode, ExtraArgsMode, NginxEngineMode }
+    { BrowserPathMode, UpstreamUrlMode, ExtraArgsMode, NginxEngineMode, JavaTrustMode }
 
     internal enum NginxEngineMode
     { AutoMode, ExternalMode, BuiltinMode }

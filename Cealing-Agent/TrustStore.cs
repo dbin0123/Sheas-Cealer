@@ -202,7 +202,9 @@ internal static class TrustStore
         }
     }
 
-    private static void Run(IReadOnlyList<string> args, string what)
+    // internal：JavaTrust 也要跑外部命令（keytool），必须复用同一个进程执行器，
+    // 不能出现第二份「先等退出还是先读流」的实现。
+    internal static void Run(IReadOnlyList<string> args, string what)
     {
         (int exitCode, string output) = Capture(args, what);
 

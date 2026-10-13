@@ -18,6 +18,7 @@ internal class MainSettingsFunctionButtonContentConv : IValueConverter
             MainConst.SettingsMode.UpstreamUrlMode => MainConst.SettingsFunctionButtonUpstreamUrlContent,
             MainConst.SettingsMode.ExtraArgsMode => MainConst.SettingsFunctionButtonExtraArgsContent,
             MainConst.SettingsMode.NginxEngineMode => MainConst.SettingsFunctionButtonNginxEngineContent,
+            MainConst.SettingsMode.JavaTrustMode => MainConst.SettingsFunctionButtonJavaTrustContent,
             _ => throw new UnreachableException()
         };
     }

@@ -17,10 +17,10 @@
 When using "global cealing", Sheas Cealer Nix requests administrator authorization once on every platform (UAC on Windows, the system authorization dialog on macOS, `pkexec` on Linux). It is used for exactly three things:
 
 1. Editing hosts (`%SystemRoot%\system32\drivers\etc\hosts` on Windows, `/etc/hosts` elsewhere) so the concealed domains point to your machine
-2. Installing a temporary root certificate into the system trust store for local HTTPS decryption
+2. Installing a temporary root certificate into the system trust store for local HTTPS decryption. The same certificate is also imported into every Java trust store found on the machine (`<java.home>/lib/security/cacerts`, via `keytool`, under the `cealing-cert-root` alias) — the JVM does not read the system trust store at all, so without this step IntelliJ IDEA and other Java clients reject the forged certificate
 3. Binding ports 80 / 443 to run the proxy engine
 
-**How to revoke**: quitting the app terminates the privileged process and automatically reverts the hosts entries and the root certificate (on Windows / Linux the window X button only hides the app to the tray; use "退出" in the tray menu or `Ctrl+W` to really quit). To remove the certificate manually, run `sudo security delete-certificate -Z <SHA-1> /Library/Keychains/System.keychain` on macOS, or `certutil -delstore Root <SHA-1>` from an elevated prompt on Windows.
+**How to revoke**: quitting the app terminates the privileged process and automatically reverts the hosts entries and the root certificate, including the copy in the Java trust stores (removed under the same alias; uninstalling purges them again as a safety net). On Windows / Linux the window X button only hides the app to the tray; use "退出" in the tray menu or `Ctrl+W` to really quit. To remove the certificate manually, run `sudo security delete-certificate -Z <SHA-1> /Library/Keychains/System.keychain` on macOS, `certutil -delstore Root <SHA-1>` from an elevated prompt on Windows, or `keytool -delete -alias cealing-cert-root -keystore <path to cacerts> -storepass changeit` for a Java store.
 
 If the authorization is declined the proxy process ends up without administrator rights, and it then refuses to enable global cealing with an explicit message instead of silently writing hosts and doing nothing.
 
@@ -61,6 +61,9 @@ The assemblies and `Cealing-Agent` must stay in `Contents/MacOS/` rather than `R
 4. Please read the **Notes** and **Agreements** before use
 5. Sheas Cealer is still in the **development stage**, but each production version will be **stable and available** before release
 6. Github Release will retain **all versions** that can be used currently, but it is strongly recommended to use the **latest version**
+7. There are three rule files: `Cealing-Host-L.json` (local, yours to maintain), `Cealing-Host-U.json` (replaced when you click **Update Upstream Host**), and `Cealing-Host-B.json` (shipped with the app and refreshed from the bundle on every start — editing it is pointless, the next start overwrites it)
+8. Global cealing covers **non-browser applications** only partially, and that is a hosts-file limitation rather than a bug: hosts cannot express `*.example.com`, so every wildcard rule becomes just the apex domain plus `www.`, and any other subdomain still resolves through real DNS and is never concealed. Browser mode has no such gap (Chromium's `--host-rules` understands wildcards)
+9. Java programs (IDEA and its plugins, Android Studio, Gradle, …) use their own trust store. Auto-discovery scans the usual install locations and `JAVA_HOME`; when it misses one, click the mode button on the settings row until it shows `Java Trust`, then list the `cacerts` files or JDK / JBR directories separated by `;` (an IDE install directory works too — the app looks for `jbr` inside it). What was imported, and what failed, is written to `cealing-agent.log` (the **View Log** button in the window)
 
 ## Agreements
 1. [Privacy Policy](https://thoughts.teambition.com/share/6264eda98adeb10041b92fda#title=Sheas_Cealer_隐私政策)

@@ -101,4 +101,41 @@ public class DataMigrationTests : IDisposable
         if (OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() || OperatingSystem.IsLinux())
             Assert.NotEqual(AppPaths.Normalize(_appDir), AppPaths.Normalize(AppPaths.DataDir));
     }
+
+    [Fact]
+    public void BundledRulesAreRefreshedOverTheDataDirCopy()
+    {
+        // 自带规则跟着版本走：数据目录里那份是上次启动刷出来的，必须被新的覆盖，
+        // 否则升级后新增的域名永远进不了规则（和 U/L 的「数据目录优先」正好相反）。
+        Directory.CreateDirectory(_dataDir);
+        WriteLegacy("Cealing-Host-B.json", "NEW");
+        File.WriteAllText(Path.Combine(_dataDir, "Cealing-Host-B.json"), "STALE-FROM-PREVIOUS-VERSION");
+
+        DataMigration.RefreshBundled(_appDir, _dataDir);
+
+        Assert.Equal("NEW", File.ReadAllText(Path.Combine(_dataDir, "Cealing-Host-B.json")));
+    }
+
+    [Fact]
+    public void BundledRefreshLeavesUserOwnedRulesAlone()
+    {
+        Directory.CreateDirectory(_dataDir);
+        WriteLegacy("Cealing-Host-L.json", "BUNDLED-DEFAULT");
+        File.WriteAllText(Path.Combine(_dataDir, "Cealing-Host-L.json"), "MY-OWN-RULES");
+
+        DataMigration.Migrate(_appDir, _dataDir);
+        DataMigration.RefreshBundled(_appDir, _dataDir);
+
+        Assert.Equal("MY-OWN-RULES", File.ReadAllText(Path.Combine(_dataDir, "Cealing-Host-L.json")));
+    }
+
+    [Fact]
+    public void BundledRefreshSkipsWhenDataDirIsTheAppDirItself()
+    {
+        WriteLegacy("Cealing-Host-B.json", "BUNDLED");
+
+        DataMigration.RefreshBundled(_dataDir, _dataDir);
+
+        Assert.False(File.Exists(Path.Combine(_dataDir, "Cealing-Host-B.json")));
+    }
 }

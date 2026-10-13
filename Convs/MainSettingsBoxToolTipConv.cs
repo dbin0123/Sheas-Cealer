@@ -18,6 +18,7 @@ internal class MainSettingsBoxToolTipConv : IValueConverter
             MainConst.SettingsMode.UpstreamUrlMode => MainConst.SettingsBoxUpstreamUrlToolTip,
             MainConst.SettingsMode.ExtraArgsMode => MainConst.SettingsBoxExtraArgsToolTip,
             MainConst.SettingsMode.NginxEngineMode => MainConst.SettingsBoxNginxEngineToolTip,
+            MainConst.SettingsMode.JavaTrustMode => MainConst.SettingsBoxJavaTrustToolTip,
             _ => throw new UnreachableException()
         };
     }

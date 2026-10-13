@@ -17,6 +17,7 @@ internal class MainSettingsBoxTextConv : IMultiValueConverter
         string extraArgs = (string)values[3];
         MainConst.NginxEngineMode nginxEngineMode = (MainConst.NginxEngineMode)values[4];
         string resolvedNginxPath = (string)values[5];
+        string javaTrustPaths = (string)values[6];
 
         return settingsMode switch
         {
@@ -36,6 +37,7 @@ internal class MainSettingsBoxTextConv : IMultiValueConverter
                     MainConst.NginxEngineMode.BuiltinMode => MainConst.NginxEngineBuiltinContent,
                     _ => string.Format(MainConst.NginxEngineAutoExternalContent, resolvedNginxPath)
                 },
+            MainConst.SettingsMode.JavaTrustMode => javaTrustPaths,
             _ => throw new UnreachableException()
         };
     }

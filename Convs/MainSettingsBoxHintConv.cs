@@ -18,6 +18,7 @@ internal class MainSettingsBoxHintConv : IValueConverter
             MainConst.SettingsMode.UpstreamUrlMode => MainConst.SettingsModeButtonUpstreamUrlContent,
             MainConst.SettingsMode.ExtraArgsMode => MainConst.SettingsModeButtonExtraArgsContent,
             MainConst.SettingsMode.NginxEngineMode => MainConst.SettingsModeButtonNginxEngineContent,
+            MainConst.SettingsMode.JavaTrustMode => MainConst.SettingsModeButtonJavaTrustContent,
             _ => throw new UnreachableException()
         };
     }

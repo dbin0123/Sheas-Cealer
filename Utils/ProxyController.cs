@@ -16,7 +16,8 @@ internal sealed class ProxyController(
     Func<SortedDictionary<string, List<(List<(string include, string exclude)> pairs, string? sni, string ip)>?>> rulesProvider,
     Func<bool> flashingProvider,
     Func<ProxyEngineKind> engineProvider,
-    Func<string?> nginxPathProvider)
+    Func<string?> nginxPathProvider,
+    Func<string> javaTrustPathsProvider)
 {
     internal AgentClient Client { get; } = new(AgentPaths.SocketPath);
 
@@ -261,6 +262,8 @@ internal sealed class ProxyController(
             NginxConfText = nginxConfText,
             MihomoBinaryPath = CoproxyMihomoPath,
             MihomoConfText = mihomoConfText,
+            // 设置页里是一整行 ';' 分隔的文本，agent 那边只想要干净的条目
+            JavaTrustPaths = [.. javaTrustPathsProvider().Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)],
             CertSans = [],
             Rules = []
         };
@@ -332,6 +335,13 @@ internal sealed class ProxyController(
     private static string EscapeRegexLiteral(string value) =>
         value.Replace(".", "\\.").Replace("*", ".*");
 
+    // 同一个域名现在可能来自好几份规则文件（本地 L、远程 U、自带 B），而 SAN 会同时喂给证书和
+    // hosts：重复项让证书里出现两次同名 SAN、hosts 里出现两行一样的记录。
+    // 去重只认「同域名同通配形态」，因为 *.google.com 和 google.com 是两条不同的 SAN。
+    private static bool ContainsSan(ProxyConfig config, string domain, bool wildcard) =>
+        config.CertSans.Exists(san => san.Wildcard == wildcard &&
+            string.Equals(san.Domain, domain, StringComparison.OrdinalIgnoreCase));
+
     // 复刻 Wins/MainWin.axaml.cs:301-321 的域名筛选与 SAN/hosts 推导
     internal static void AddCertSan(ProxyConfig config, string rawDomain)
     {
@@ -340,15 +350,19 @@ internal sealed class ProxyController(
         if (rawDomain.StartsWith('#') || domain.Contains('*') || string.IsNullOrWhiteSpace(domain))
             return;
 
-        if (rawDomain.TrimStart('$').StartsWith('*'))
-        {
-            config.CertSans.Add(new ProxyCertSan { Domain = domain, Wildcard = true });
+        string includePart = rawDomain.TrimStart('$');
 
-            if (rawDomain.TrimStart('$').StartsWith("*."))
+        if (includePart.StartsWith('*'))
+        {
+            if (!ContainsSan(config, domain, wildcard: true))
+                config.CertSans.Add(new ProxyCertSan { Domain = domain, Wildcard = true });
+
+            if (includePart.StartsWith("*."))
                 return;
         }
 
-        config.CertSans.Add(new ProxyCertSan { Domain = domain, Wildcard = false });
+        if (!ContainsSan(config, domain, wildcard: false))
+            config.CertSans.Add(new ProxyCertSan { Domain = domain, Wildcard = false });
     }
 
     internal string? CoproxyMihomoPath { get; set; }

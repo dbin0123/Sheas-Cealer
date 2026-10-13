@@ -17,10 +17,10 @@
 在三个平台使用「全局伪造」时，Sheas Cealer Nix 都会请求一次管理员授权（Windows 使用 UAC，macOS 使用系统授权框，Linux 使用 `pkexec`）。授权只用于做三件事：
 
 1. 修改 hosts（Windows 为 `%SystemRoot%\system32\drivers\etc\hosts`，其余平台为 `/etc/hosts`），把伪造域名指向本机
-2. 安装一张临时根证书到系统信任库，用于本机 HTTPS 解密
+2. 安装一张临时根证书到系统信任库，用于本机 HTTPS 解密；同一张证书还会用 `keytool` 按 `cealing-cert-root` 别名导入本机找到的 Java 信任库（`<java.home>/lib/security/cacerts`）—— JVM 不读系统信任库，少了这一步 IDEA 这类 Java 程序会直接拒掉伪造证书
 3. 监听 80 / 443 端口，运行反代引擎
 
-**撤销方式**：退出应用即结束该特权代理进程，hosts 条目与根证书会被自动还原（Windows / Linux 上点窗口 X 只是收进托盘，要用托盘菜单的「退出」或 `Ctrl+W` 才是真退出）。若需手动清理根证书：macOS 执行 `sudo security delete-certificate -Z <SHA-1> /Library/Keychains/System.keychain`；Windows 以管理员身份执行 `certutil -delstore Root <SHA-1>`。
+**撤销方式**：退出应用即结束该特权代理进程，hosts 条目与根证书会被自动还原（包括 Java 信任库里那一份，按同一个别名回删；卸载时还会再做一次全量清理）（Windows / Linux 上点窗口 X 只是收进托盘，要用托盘菜单的「退出」或 `Ctrl+W` 才是真退出）。若需手动清理根证书：macOS 执行 `sudo security delete-certificate -Z <SHA-1> /Library/Keychains/System.keychain`；Windows 以管理员身份执行 `certutil -delstore Root <SHA-1>`；Java 侧执行 `keytool -delete -alias cealing-cert-root -keystore <cacerts 路径> -storepass changeit`。
 
 授权被拒时特权代理进程拿不到管理员权限，此时它会直接拒绝启用全局伪造并给出提示，不会静默地写了 hosts 却没生效。
 
@@ -64,6 +64,9 @@ open out/publish/Sheas-Cealer-Nix.app
 4. 为避免不必要的麻烦，使用前请先阅读注意事项和用户协议
 5. Sheas Cealer Nix 仍处于**开发阶段**，但每个正式版发布前会尽量确保其**稳定可用**
 6. Github Release 中会保留目前能够使用的**所有版本**，但强烈推荐使用**最新版**
+7. 伪造规则分三份：`Cealing-Host-L.json`（本地，你自己维护）、`Cealing-Host-U.json`（点**更新上游规则**时覆盖）、`Cealing-Host-B.json`（应用自带，每次启动随版本刷新，不要手改，改了也会被覆盖）
+8. 「全局伪造」对**非浏览器程序**的覆盖范围有限，这不是 bug 而是 hosts 的限制：hosts 语法写不出 `*.example.com`，所以每条通配符规则只会落地成主域名和 `www.` 两条记录，其余子域名仍走真实 DNS、不会被伪造。浏览器模式没有这个问题（Chromium 的 `--host-rules` 支持通配）
+9. Java 程序（IDEA 及其插件、Android Studio、Gradle 等）用的是自己的信任库，自动发现会扫常见安装位置和 `JAVA_HOME`；扫不到时在主界面设置行点**切换模式**到 `Java 信任库`，填入 cacerts 文件或 JDK / JBR 目录，多个用 `;` 分隔（填 IDE 安装目录也行，程序会往里找 `jbr`）。装了哪些、哪些没装进 `cealing-agent.log`（窗口里的**查看日志**）
 
 ## 用户协议
 1. [隐私政策](https://thoughts.teambition.com/share/6264eda98adeb10041b92fdb#title=Sheas_Cealer_隐私政策)

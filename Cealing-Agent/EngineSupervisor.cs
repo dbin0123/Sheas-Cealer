@@ -2,6 +2,7 @@ using Cealing_Core;
 using Cealing_Agent.Engines;
 using Cealing_Core.Protocol;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -23,6 +24,16 @@ internal sealed class EngineSupervisor(string appDir, string dataDir, int ownerU
     private ProxyConfig? _config;
     private ProxyCertificate? _certificate;
     private string? _rootThumbprint;
+
+    // 本次真正导入成功的 Java 信任库。回删只认这些：别人的库没动过，就不该去 keytool -delete。
+    private IReadOnlyList<string> _javaStores = [];
+
+    // agent 以 root 跑，Environment.GetFolderPath(UserProfile) 是 /root；用户的 ~/.jdks
+    // 和 Toolbox 运行时只能从 --data-dir 反推出来。
+    private IReadOnlyList<string>? _userHomes;
+
+    private IReadOnlyList<string> UserHomes =>
+        _userHomes ??= AppPaths.HomeForDataDir(dataDir) is string home ? [home] : [];
 
     // start/reload/stop 必须串行：两个并发的 StartAsync 会各自 StopAsync 后同时去绑
     // 80/443，其中一个必然抛 "Failed to bind to address https://localhost:443"。
@@ -91,7 +102,14 @@ internal sealed class EngineSupervisor(string appDir, string dataDir, int ownerU
             // 不加这个标记它就会把**别的 agent** 正在用的 hosts 块一起删掉。
             _hostsWritten = true;
 
-            AgentLog.Info($"hosts block written ({config.CertSans.Count} sans)");
+            // 通配符域名在这里会被削成「apex + www.」两条（hosts 语法没有 *.x 这种东西），
+            // 这是「全局伪造对非浏览器应用只覆盖一部分域名」的头号原因（issue #1）。
+            // 不写进日志的话，排查的人只能去猜为什么 translate.google.com 上不了。
+            int wildcardSans = config.CertSans.Count(san => san.Wildcard);
+
+            AgentLog.Info(
+                $"hosts block written ({config.CertSans.Count} sans, {wildcardSans} of them wildcards" +
+                (wildcardSans > 0 ? "; hosts cannot express *.domain, so each wildcard became apex + www. only" : ")"));
         }
 
         AgentLog.Info($"start: creating certificate ({config.CertSans.Count} sans)");
@@ -110,6 +128,18 @@ internal sealed class EngineSupervisor(string appDir, string dataDir, int ownerU
         catch (Exception ex)
         {
             AgentLog.Error($"root cert install failed, continuing anyway: {ex.Message}");
+        }
+
+        // JVM 完全不读系统信任库，只认 <java.home>/lib/security/cacerts，
+        // 所以上面那步对 IntelliJ IDEA 这类 Java 客户端等于没做：伪造的叶子证书必被 JSSE 拒掉，
+        // 插件侧只剩一句 "Network error"（issue #1）。同一张根证书再用 keytool 装一份进 Java 侧。
+        try
+        {
+            _javaStores = JavaTrust.Install(_certificate.RootPemPath, Platform, UserHomes, config.JavaTrustPaths);
+        }
+        catch (Exception ex)
+        {
+            AgentLog.Error($"java root cert install failed, continuing anyway: {ex.Message}");
         }
 
         try
@@ -229,6 +259,22 @@ internal sealed class EngineSupervisor(string appDir, string dataDir, int ownerU
                 });
 
             _rootThumbprint = null;
+        }
+
+        if (_javaStores.Count > 0)
+        {
+            IReadOnlyList<string> stores = _javaStores;
+
+            _javaStores = [];
+
+            await RunQuietlyAsync(
+                $"uninstalling root cert from {stores.Count} java trust store(s)",
+                () =>
+                {
+                    JavaTrust.Remove(stores);
+
+                    return Task.CompletedTask;
+                });
         }
 
         await RunQuietlyAsync(

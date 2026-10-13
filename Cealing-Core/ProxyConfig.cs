@@ -17,4 +17,9 @@ public sealed class ProxyConfig
     public string? MihomoConfText { get; set; }
     public List<ProxyCertSan> CertSans { get; set; } = [];
     public List<ProxyRule> Rules { get; set; } = [];
+
+    // 自动发现扫不到的 Java 信任库，由用户在设置页补充（cacerts 文件或 JDK/JBR 根目录）。
+    // 放在这里而不是让 agent 自己去读用户配置：agent 以 root 运行，
+    // 用户配置文件的位置和内容对它来说是 GUI 的实现细节。
+    public List<string> JavaTrustPaths { get; set; } = [];
 }

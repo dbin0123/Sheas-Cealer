@@ -51,6 +51,39 @@ public static class AppPaths
     }
 
     /// <summary>
+    /// <see cref="DataDirForHome"/> 的反向：从数据目录倒推它属于哪个家目录。
+    /// </summary>
+    /// <remarks>
+    /// root 侧的 agent 只知道 <c>--data-dir</c>，而它自己的 <c>UserProfile</c> 在
+    /// pkexec / sudo 下是 <c>/root</c>，拿不到用户家目录里的 <c>~/.jdks</c>、JetBrains Toolbox 运行时。
+    /// 形状对不上（比如 <c>XDG_CONFIG_HOME</c> 指向别处）时返回 null，调用方按「只扫系统目录」降级，
+    /// 而不是去猜一个可能指向别人目录的路径。
+    /// </remarks>
+    public static string? HomeForDataDir(string dataDir)
+    {
+        if (string.IsNullOrWhiteSpace(dataDir))
+            return null;
+
+        string[] suffix = OperatingSystem.IsWindows()
+            ? ["AppData", "Roaming", AppFolderName]
+            : OperatingSystem.IsMacOS()
+                ? ["Library", "Application Support", AppFolderName]
+                : [".config", AppFolderName];
+
+        string tail = Path.DirectorySeparatorChar + string.Join(Path.DirectorySeparatorChar, suffix);
+        string trimmed = dataDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        StringComparison comparison = OperatingSystem.IsWindows()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+
+        if (!trimmed.EndsWith(tail, comparison) || trimmed.Length == tail.Length)
+            return null;
+
+        return trimmed[..^tail.Length];
+    }
+
+    /// <summary>
     /// root 侧二进制的暂存目录根（下面按版本分子目录）。bundle 挂在 root 执行不了的文件系统上时
     /// （AppImage 的 FUSE 挂载），GUI 会把可执行文件复制到这里的真实目录再交给提权进程。
     /// </summary>

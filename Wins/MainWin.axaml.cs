@@ -133,7 +133,8 @@ public partial class MainWin : Window
             () => CealHostRulesDict,
             () => MainPres.IsFlashing,
             () => MainPres.IsBuiltinProxyEngine ? ProxyEngineKind.Builtin : ProxyEngineKind.External,
-            () => MainPres.ResolvedNginxPath);
+            () => MainPres.ResolvedNginxPath,
+            () => MainPres.JavaTrustPaths);
 
         await Task.Run(async () =>
         {
@@ -302,6 +303,9 @@ public partial class MainWin : Window
                 return;
             case MainConst.SettingsMode.NginxEngineMode:
                 return;
+            case MainConst.SettingsMode.JavaTrustMode:
+                MainPres.JavaTrustPaths = SettingsBox.Text ?? string.Empty;
+                return;
         }
     }
     private void SettingsModeButton_Click(object sender, RoutedEventArgs e)
@@ -311,7 +315,8 @@ public partial class MainWin : Window
             MainConst.SettingsMode.BrowserPathMode => MainConst.SettingsMode.UpstreamUrlMode,
             MainConst.SettingsMode.UpstreamUrlMode => MainConst.SettingsMode.ExtraArgsMode,
             MainConst.SettingsMode.ExtraArgsMode => MainConst.SettingsMode.NginxEngineMode,
-            MainConst.SettingsMode.NginxEngineMode => MainConst.SettingsMode.BrowserPathMode,
+            MainConst.SettingsMode.NginxEngineMode => MainConst.SettingsMode.JavaTrustMode,
+            MainConst.SettingsMode.JavaTrustMode => MainConst.SettingsMode.BrowserPathMode,
             _ => throw new UnreachableException()
         };
     }
@@ -345,6 +350,11 @@ public partial class MainWin : Window
                     MainConst.NginxEngineMode.ExternalMode => MainConst.NginxEngineMode.BuiltinMode,
                     _ => MainConst.NginxEngineMode.AutoMode
                 };
+                return;
+            case MainConst.SettingsMode.JavaTrustMode:
+                // 手填路径是「自动发现不够用」时的补充手段，填错了只会让那几个库装不进去并留在日志里，
+                // 所以这里只提供一键清空，不去猜用户想选 cacerts 文件还是 JDK 目录。
+                MainPres.JavaTrustPaths = string.Empty;
                 return;
         }
     }
@@ -690,7 +700,10 @@ public partial class MainWin : Window
         {
             MainPres.IsMihomoIniting = false;
 
-            if (!MainPres.IsComihomoIniting)
+            // 只在真的读到过用户配置的前提下还原。ExtraMihomoConfs 还是 null 时
+            // （构建配置的 MihomoConfWatcher_Changed 提前 return 过）写回去等于把 config.yaml 清空，
+            // 用户的节点就这么没了。
+            if (!MainPres.IsComihomoIniting && ExtraMihomoConfs is not null)
                 await File.WriteAllTextAsync(MainConst.MihomoConfPath, ExtraMihomoConfs);
 
             MihomoConfWatcher.EnableRaisingEvents = true;
@@ -1151,17 +1164,11 @@ public partial class MainWin : Window
                 else if (activeTcpListener.Port > MihomoMixedPort)
                     break;
 
-            await using FileStream mihomoConfStream = new(MainConst.MihomoConfPath, FileMode.OpenOrCreate, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-            Dictionary<string, object> mihomoConfDict = new DeserializerBuilder()
-                .WithNamingConvention(HyphenatedNamingConvention.Instance)
-                .IgnoreUnmatchedProperties()
-                .Build()
-                .Deserialize<Dictionary<string, object>>(ExtraMihomoConfs = await new StreamReader(mihomoConfStream).ReadToEndAsync()) ?? [];
-            Dictionary<string, object> hostsMihomoConfDict = new DeserializerBuilder()
-                .WithNamingConvention(HyphenatedNamingConvention.Instance)
-                .IgnoreUnmatchedProperties()
-                .Build()
-                .Deserialize<Dictionary<string, object>>(ExtraMihomoConfs = await new StreamReader(mihomoConfStream).ReadToEndAsync()) ?? [];
+            // 一次读完、按同一份文本解析两遍：见 Utils/MihomoConfText 里记的那次「把用户配置清成 0 字节」的事故。
+            string userMihomoConfText = ExtraMihomoConfs = MihomoConfText.Read(MainConst.MihomoConfPath);
+
+            Dictionary<string, object> mihomoConfDict = MihomoConfText.Parse(userMihomoConfText);
+            Dictionary<string, object> hostsMihomoConfDict = MihomoConfText.Parse(userMihomoConfText);
 
             mihomoConfDict["mixed-port"] = hostsMihomoConfDict["mixed-port"] = MihomoMixedPort;
 

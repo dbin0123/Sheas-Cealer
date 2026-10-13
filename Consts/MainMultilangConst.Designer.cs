@@ -851,6 +851,33 @@ namespace Sheas_Cealer_Nix.Consts {
             }
         }
         
+        /// <summary>
+        ///   查找类似 Java Trust 的本地化字符串。
+        /// </summary>
+        public static string SettingsModeButtonJavaTrustContent {
+            get {
+                return ResourceManager.GetString("SettingsModeButtonJavaTrustContent", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 Extra Java trust stores 的本地化字符串。
+        /// </summary>
+        public static string SettingsBoxJavaTrustToolTip {
+            get {
+                return ResourceManager.GetString("SettingsBoxJavaTrustToolTip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 Clear 的本地化字符串。
+        /// </summary>
+        public static string SettingsFunctionButtonJavaTrustContent {
+            get {
+                return ResourceManager.GetString("SettingsFunctionButtonJavaTrustContent", resourceCulture);
+            }
+        }
+        
         
     }
 }

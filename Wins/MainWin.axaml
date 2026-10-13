@@ -49,6 +49,7 @@
                         <Binding Path="ExtraArgs" />
                         <Binding Path="NginxEngineMode" />
                         <Binding Path="ResolvedNginxPath" />
+                        <Binding Path="JavaTrustPaths" />
                     </MultiBinding>
                 </TextBox.Text>
             </TextBox>

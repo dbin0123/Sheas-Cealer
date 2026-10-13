@@ -93,6 +93,11 @@
     <None Include="Cealing-Host-L.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <!-- 应用自带的只读规则。每次启动由 DataMigration 从 bundle 整份刷进数据目录，
+         所以它必须真的出现在产物目录里（发布脚本别把它当可变状态删掉）。 -->
+    <None Include="Cealing-Host-B.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
   <ItemGroup>
