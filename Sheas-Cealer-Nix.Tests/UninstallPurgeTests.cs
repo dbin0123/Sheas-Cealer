@@ -150,6 +150,11 @@ public sealed class UninstallPurgeTests : IDisposable
     [Fact]
     public void DeleteStagedBinLeavesTheDataDirAlone()
     {
+        if (OperatingSystem.IsWindows())
+            // 同 PurgeUserFilesAlwaysRemovesStagedBinaries：Windows 上没有暂存这套机制，
+            // DeleteStagedBin 直接返回，那条断言在这里永远不可能成立。
+            return;
+
         string home = SandboxHome();
 
         AppPaths.DeleteStagedBin(home);
