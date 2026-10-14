@@ -273,6 +273,9 @@
   <data name="SettingsModeButtonUpstreamUrlContent" xml:space="preserve">
     <value>Upstream URL</value>
   </data>
+  <data name="SettingsModeSwitchFormat" xml:space="preserve">
+    <value>Switch to {0}</value>
+  </data>
   <data name="UpdateUpstreamHostButtonContent" xml:space="preserve">
     <value>Update Upstream Host</value>
   </data>

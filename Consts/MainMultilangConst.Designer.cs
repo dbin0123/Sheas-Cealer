@@ -878,6 +878,15 @@ namespace Sheas_Cealer_Nix.Consts {
             }
         }
         
+        /// <summary>
+        ///   查找类似 Switch to {0} 的本地化字符串。
+        /// </summary>
+        public static string SettingsModeSwitchFormat {
+            get {
+                return ResourceManager.GetString("SettingsModeSwitchFormat", resourceCulture);
+            }
+        }
+        
         
     }
 }
