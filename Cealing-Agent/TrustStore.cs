@@ -220,7 +220,16 @@ internal static class TrustStore
     {
         AgentLog.Info($"{what}: {string.Join(' ', args)}");
 
-        ProcessStartInfo startInfo = new(args[0]) { UseShellExecute = false, RedirectStandardError = true, RedirectStandardOutput = true };
+        // CreateNoWindow 不是可选的：agent 是 WinExe、自己没有控制台，父进程没控制台时 Windows 会给
+        // 每个控制台子进程另分配一个黑窗。少了这个开关，一次启动就要闪 3×信任库个数 + certutil 那么多个窗
+        // （四个 Java 运行时＝十四个），看起来像中了病毒。重定向流管的是数据，管不了窗。
+        ProcessStartInfo startInfo = new(args[0])
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardError = true,
+            RedirectStandardOutput = true
+        };
 
         foreach (string arg in args.Skip(1))
             startInfo.ArgumentList.Add(arg);
