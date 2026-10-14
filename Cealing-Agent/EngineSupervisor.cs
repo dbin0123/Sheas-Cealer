@@ -88,9 +88,13 @@ internal sealed class EngineSupervisor(string appDir, string dataDir, int ownerU
         // 注意：这里必须调 StopCoreAsync()（不取锁的私有版本），不能调公有 StopAsync()。
         // StartAsync 已持有 _lifecycleLock，而 SemaphoreSlim 不可重入，
         // 再取一次锁会永久死锁 —— 表现为 start 命令永不返回、界面像卡死。
+        //
+        // keepJavaTrust：重启引擎不要把 Java 信任库里的根删掉再装回来。删和装之间实测隔了
+        // 11 秒，正好在这段里启动的 JVM 读不到根证书（JSSE 只在建 JVM 时读 cacerts），
+        // 之后插件一直报连接错误，而用户只会觉得「明明装过证书了」。真正停止时照旧要删。
         AgentLog.Info("start: stopping previous engine");
 
-        await StopCoreAsync().ConfigureAwait(false);
+        await StopCoreAsync(keepJavaTrust: true).ConfigureAwait(false);
 
         AgentLog.Info("start: previous engine stopped");
 
@@ -217,7 +221,7 @@ internal sealed class EngineSupervisor(string appDir, string dataDir, int ownerU
     // 清理必须「每一步都尽力做完」。原来的写法任何一步抛出都会让后面的步骤整个跳过 ——
     // 而后面的步骤恰好是拆系统根证书和还原 hosts：agent 照样退出，界面那边只看到「代理没了」，
     // 伪造的 hosts 和一张系统信任根却永久留在机器上，比进程残留难发现得多。
-    private async Task StopCoreAsync()
+    private async Task StopCoreAsync(bool keepJavaTrust = false)
     {
         await RunQuietlyAsync(
             "stopping engine",
@@ -261,7 +265,7 @@ internal sealed class EngineSupervisor(string appDir, string dataDir, int ownerU
             _rootThumbprint = null;
         }
 
-        if (_javaStores.Count > 0)
+        if (_javaStores.Count > 0 && !keepJavaTrust)
         {
             IReadOnlyList<string> stores = _javaStores;
 

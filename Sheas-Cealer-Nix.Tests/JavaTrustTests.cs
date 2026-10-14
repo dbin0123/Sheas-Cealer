@@ -65,6 +65,49 @@ public sealed class JavaTrustTests : IDisposable
     }
 
     [Fact]
+    public void ListArgsTargetTheSameAliasAndStoreAsImport()
+    {
+        IReadOnlyList<string> import = JavaTrust.BuildImportArgs("keytool", "/opt/jdk/lib/security/cacerts", "/data/root.pem");
+        IReadOnlyList<string> list = JavaTrust.BuildListArgs("keytool", "/opt/jdk/lib/security/cacerts");
+
+        // 比对用的必须是同一个别名和同一个库，否则「已经装过」的判断会落在别处。
+        Assert.Equal("-list", list[1]);
+        Assert.Equal(JavaTrust.Alias, ArgsValue(list, "-alias"));
+        Assert.Equal(ArgsValue(import, "-keystore"), ArgsValue(list, "-keystore"));
+        Assert.Equal(ArgsValue(import, "-storepass"), ArgsValue(list, "-storepass"));
+
+        // 实测 keytool 的 -list 不认 -fingerprint（非法选项，退出码 1），而 -list 本身就打指纹行。
+        Assert.DoesNotContain("-fingerprint", list);
+    }
+
+    [Fact]
+    public void StoreFingerprintMatchAcceptsBothHashFormsAndLabels()
+    {
+        const string Sha1 = "DBE3FDEB4C5F102033E31C3ACCE28576AA2CE8DE";
+        const string Sha256 = "7B12A3C4D5E6F708192A3B4C5D6E7F8091A2B3C4D5E6F708192A3B4C5D6E7F80";
+
+        // JDK 20 之前打 SHA-1、之后打 SHA-256，标签还跟着本地化走（中文环境是「证书指纹」）。
+        // 这两段就是本机 JDK 21 上 -list 的真实输出形状。
+        Assert.True(JavaTrust.StoreAlreadyHasRoot(
+            $"cealing-cert-root, 2026-10-14 上午9:11, trustedCertEntry,{Environment.NewLine}" +
+            $"Certificate fingerprint (SHA1): {Coloned(Sha1)}{Environment.NewLine}", Sha1, Sha256));
+
+        Assert.True(JavaTrust.StoreAlreadyHasRoot(
+            $"cealing-cert-root, 2026年10月14日, trustedCertEntry,{Environment.NewLine}" +
+            $"证书指纹 (SHA-256): {Coloned(Sha256)}{Environment.NewLine}", Sha1, Sha256));
+
+        // 库里是上一任的根：绝不能当成「已经可信」，否则新根永远装不进去。
+        Assert.False(JavaTrust.StoreAlreadyHasRoot(
+            $"cealing-cert-root, 2026-10-14, trustedCertEntry,{Environment.NewLine}" +
+            $"Certificate fingerprint (SHA1): {Coloned("F" + Sha1[1..])}{Environment.NewLine}", Sha1, Sha256));
+
+        Assert.False(JavaTrust.StoreAlreadyHasRoot(string.Empty, Sha1, Sha256));
+    }
+
+    // keytool 打的指纹带冒号分隔，库里存的就长这样。
+    private static string Coloned(string hex) => string.Join(':', hex);
+
+    [Fact]
     public void ConfiguredCacertsFileIsTakenAsIs()
     {
         string cacerts = Write("custom", "security", "cacerts");

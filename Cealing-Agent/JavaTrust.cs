@@ -3,6 +3,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
+using System.Text;
 
 namespace Cealing_Agent;
 
@@ -39,12 +42,18 @@ internal static class JavaTrust
     internal static IReadOnlyList<string> BuildRemoveArgs(string keytool, string cacertsPath) =>
         [keytool, "-delete", "-alias", Alias, "-keystore", cacertsPath, "-storepass", StorePassword];
 
+    // 实测 JDK 21：-list 单独就会打「证书指纹 (SHA-256):」那一行，而 -list -fingerprint 是**非法选项**
+    // （keytool 回一屏用法、退出码 1）。别把 -fingerprint 加回来。
+    internal static IReadOnlyList<string> BuildListArgs(string keytool, string cacertsPath) =>
+        [keytool, "-list", "-alias", Alias, "-keystore", cacertsPath, "-storepass", StorePassword];
+
     /// <summary>
-    /// 把根证书装进本机所有能写进去的 Java 信任库。返回真正导入成功的库路径（回删只认这些）。
+    /// 把根证书装进本机所有能写进去的 Java 信任库。返回本次依赖的库路径（回删只认这些）。
     /// </summary>
     internal static IReadOnlyList<string> Install(string rootCertPemPath, string platform, IReadOnlyList<string> userHomes, IReadOnlyList<string> configuredPaths)
     {
         List<string> installed = [];
+        (string sha1, string sha256) = RootHashes(rootCertPemPath);
 
         foreach (string cacerts in DiscoverStores(platform, userHomes, configuredPaths))
         {
@@ -58,6 +67,22 @@ internal static class JavaTrust
 
             try
             {
+                if (AlreadyTrusted(keytool, cacerts, sha1, sha256))
+                {
+                    // 库里已经是这张根就一次导入都不发。重启引擎时上游路径也不会再来删一遍
+                    // （见 EngineSupervisor 的 keepJavaTrust），于是 cacerts 里「暂时没有这张根」
+                    // 的那个窗口消失了：实测旧做法删和装之间隔了 11 秒，正好在这个窗口里启动的
+                    // JVM 读不到根证书，会一直拒绝伪造证书直到用户再重启一次 IDEA（issue #1）。
+                    AgentLog.Info($"root cert already trusted in {cacerts}, import skipped");
+                    installed.Add(cacerts);
+                    continue;
+                }
+
+                // 别名在、但指纹不是我们这张（换过根、或上一次没删干净）：
+                // -importcert 撞上同名别名会以 "Certificate already exists in this keystore" 失败，
+                // 新根就永远装不进去，只能先删。
+                TryRemoveAlias(keytool, cacerts);
+
                 TrustStore.Run(BuildImportArgs(keytool, cacerts, rootCertPemPath), $"import root cert into {cacerts}");
                 installed.Add(cacerts);
             }
@@ -72,6 +97,63 @@ internal static class JavaTrust
         AgentLog.Info($"java trust stores updated: {installed.Count}");
 
         return installed;
+    }
+
+    private static bool AlreadyTrusted(string keytool, string cacerts, string sha1, string sha256)
+    {
+        try
+        {
+            // 别名不存在时 keytool 直接返回非 0，那正是「还没装过」。
+            (int exitCode, string output) = TrustStore.Capture(BuildListArgs(keytool, cacerts), $"check root cert in {cacerts}");
+
+            return exitCode == 0 && StoreAlreadyHasRoot(output, sha1, sha256);
+        }
+        catch (Exception ex)
+        {
+            AgentLog.Warn($"root cert check failed for {cacerts}, importing anyway: {ex.Message}");
+
+            return false;
+        }
+    }
+
+    // JDK 20 起 keytool 默认打 SHA-256，更早的版本打 SHA-1；标签和日期还是本地化的
+    // （中文环境是「证书指纹 (SHA-256):」），所以两边都只留十六进制再比。
+    internal static bool StoreAlreadyHasRoot(string listOutput, string sha1, string sha256)
+    {
+        string haystack = OnlyHexUpper(listOutput);
+
+        return (sha1.Length != 0 && haystack.Contains(sha1)) ||
+               (sha256.Length != 0 && haystack.Contains(sha256));
+    }
+
+    private static (string sha1, string sha256) RootHashes(string rootCertPemPath)
+    {
+        using X509Certificate2 root = X509Certificate2.CreateFromPemFile(rootCertPemPath);
+
+        return (OnlyHexUpper(root.GetCertHashString()), OnlyHexUpper(root.GetCertHashString(HashAlgorithmName.SHA256)));
+    }
+
+    private static string OnlyHexUpper(string value)
+    {
+        StringBuilder builder = new(value.Length);
+
+        foreach (char c in value)
+            if (Uri.IsHexDigit(c))
+                builder.Append(char.ToUpperInvariant(c));
+
+        return builder.ToString();
+    }
+
+    private static void TryRemoveAlias(string keytool, string cacerts)
+    {
+        try
+        {
+            TrustStore.Capture(BuildRemoveArgs(keytool, cacerts), $"drop stale alias in {cacerts}");
+        }
+        catch (Exception ex)
+        {
+            AgentLog.Warn($"stale alias removal failed in {cacerts}, importing anyway: {ex.Message}");
+        }
     }
 
     internal static void Remove(IReadOnlyList<string> cacertsPaths)
