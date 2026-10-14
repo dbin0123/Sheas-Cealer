@@ -126,11 +126,28 @@ internal static class JavaTrust
                (sha256.Length != 0 && haystack.Contains(sha256));
     }
 
-    private static (string sha1, string sha256) RootHashes(string rootCertPemPath)
+    // 指纹只能代表「库里那张是不是我们这张」，读不出来就必须当「不是」，
+    // 让调用方照常走先删再装 —— 省掉那次导入只是优化，装不上去才是故障。
+    internal static (string sha1, string sha256) RootHashes(string rootCertPemPath)
     {
-        using X509Certificate2 root = X509Certificate2.CreateFromPemFile(rootCertPemPath);
+        try
+        {
+            // 读成文本再交给 CreateFromPem，别用单参数的 CreateFromPemFile(path)：net8 的 Windows 实现
+            // 会顺带去找私钥，而 root.pem 按设计只有证书（私钥单独在 Cealing-Key.pem），于是它抛
+            // 「The key contents do not contain a PEM...」。这一句在遍历信任库之前，抛出来整步 Java
+            // 信任库一个库都走不到 —— cacerts 一张都装不进去（v1.0.10 的回归，本机日志复现）。
+            using X509Certificate2 root = X509Certificate2.CreateFromPem(File.ReadAllText(rootCertPemPath));
 
-        return (OnlyHexUpper(root.GetCertHashString()), OnlyHexUpper(root.GetCertHashString(HashAlgorithmName.SHA256)));
+            return (OnlyHexUpper(root.GetCertHashString()), OnlyHexUpper(root.GetCertHashString(HashAlgorithmName.SHA256)));
+        }
+        catch (Exception ex)
+        {
+            // 指纹读不出来就当成「库里不是这张」，照常先删再装：跳过那次导入只是省掉 11 秒窗口，
+            // 装不进去才是故障。最常见的原因是根证书文件还没写出来（首次启动的时序）或被截断。
+            AgentLog.Warn($"root cert fingerprint unavailable, importing without the skip check: {ex.Message}");
+
+            return (string.Empty, string.Empty);
+        }
     }
 
     private static string OnlyHexUpper(string value)

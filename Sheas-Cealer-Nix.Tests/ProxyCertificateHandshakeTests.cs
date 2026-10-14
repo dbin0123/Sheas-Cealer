@@ -6,6 +6,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
+using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 using Xunit;
@@ -68,6 +69,50 @@ public sealed class ProxyCertificateHandshakeTests
             finally
             {
                 certificate.Dispose();
+            }
+        }
+        finally
+        {
+            Directory.Delete(dataDir, recursive: true);
+        }
+    }
+
+    // 根证书必须跨启动复用：每次重启都换一张根，浏览器/系统信任的是旧根，
+    // 代理出示的叶子就链对不上（这条不变量之前只靠注释守着，Windows 上一个同类
+    // API 陷阱能让它静默失效 —— 见 JavaTrust.RootHashes 的 v1.0.10 回归）。
+    [Fact]
+    public void RootCertificateIsReusedAcrossStarts()
+    {
+        string dataDir = Path.Combine(Path.GetTempPath(), "cealing-cert-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dataDir);
+
+        ProxyConfig config = new()
+        {
+            CertSans = [new ProxyCertSan { Domain = "example.com", Wildcard = false }]
+        };
+
+        try
+        {
+            ProxyCertificate first = ProxyCertificateFactory.Create(config, dataDir, ownerUid: -1);
+            byte[] firstRoot = first.Root.RawData;
+
+            first.Dispose();
+
+            ProxyCertificate second = ProxyCertificateFactory.Create(config, dataDir, ownerUid: -1);
+
+            try
+            {
+                Assert.Equal(Convert.ToHexString(firstRoot), Convert.ToHexString(second.Root.RawData));
+
+                // 复用路径要能把私钥配回来（Cealing-Key.pem），否则叶证书没法重签。
+                Assert.True(second.Root.HasPrivateKey, "reused root must carry the private key from Cealing-Key.pem");
+                using RSA? reusedKey = second.Root.GetRSAPrivateKey();
+
+                Assert.NotNull(reusedKey);
+            }
+            finally
+            {
+                second.Dispose();
             }
         }
         finally

@@ -4,6 +4,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
+using System.Text;
 using Xunit;
 
 namespace Sheas_Cealer_Nix.Tests;
@@ -102,6 +105,72 @@ public sealed class JavaTrustTests : IDisposable
             $"Certificate fingerprint (SHA1): {Coloned("F" + Sha1[1..])}{Environment.NewLine}", Sha1, Sha256));
 
         Assert.False(JavaTrust.StoreAlreadyHasRoot(string.Empty, Sha1, Sha256));
+
+        // 指纹读不出来时传的是两个空串，此时必须判为「不可信」去走导入，
+        // 而不是把满屏十六进制的输出当成匹配。
+        Assert.False(JavaTrust.StoreAlreadyHasRoot($"证书指纹 (SHA-256): {Coloned(Sha256)}", string.Empty, string.Empty));
+    }
+
+    [Fact]
+    public void RootHashesMatchTheFingerprintsKeytoolPrints()
+    {
+        // 按生产侧的写法原样落盘：ProxyCertificateFactory 写的是 root.ExportCertificatePem()
+        // —— UTF8 无 BOM、**不带结尾换行**、且里面只有证书（私钥单独在 Cealing-Key.pem）。
+        // v1.0.10 在这份字节上炸了：net8 的 Windows 里单参数 CreateFromPemFile 会连带去找私钥，
+        // 找不到就抛，于是 Java 信任库整步被跳过（本机 cealing-agent.log 复现）。
+        string path = WriteRootPem(out byte[] der);
+
+        (string sha1, string sha256) = JavaTrust.RootHashes(path);
+
+        Assert.Equal(Convert.ToHexString(SHA1.HashData(der)), sha1);
+        Assert.Equal(Convert.ToHexString(SHA256.HashData(der)), sha256);
+
+        // keytool 打的是带冒号的同一种十六进制，比对用的就是这两串。
+        Assert.True(JavaTrust.StoreAlreadyHasRoot($"证书指纹 (SHA-256): {Coloned(sha256)}", sha1, sha256));
+    }
+
+    [Fact]
+    public void RootHashesYieldEmptyHashesWhenThePemCarriesNoCertificate()
+    {
+        // 只有私钥、没有证书块：读不出指纹，但不能把整步 Java 信任库带崩。
+        using RSA strayKey = RSA.Create(2048);
+        string path = Path.Combine(_root, "no-certificate.pem");
+
+        File.WriteAllText(path, strayKey.ExportPkcs8PrivateKeyPem(), Utf8NoBom);
+
+        (string sha1, string sha256) = JavaTrust.RootHashes(path);
+
+        Assert.Equal(string.Empty, sha1);
+        Assert.Equal(string.Empty, sha256);
+    }
+
+    [Fact]
+    public void RootHashesYieldEmptyHashesWhenTheRootPemIsMissing()
+    {
+        // 根证书文件还没写出来（首次启动的时序）时同样只能退回「照常导入」。
+        (string sha1, string sha256) = JavaTrust.RootHashes(Path.Combine(_root, "does-not-exist.pem"));
+
+        Assert.Equal(string.Empty, sha1);
+        Assert.Equal(string.Empty, sha256);
+    }
+
+    private static readonly UTF8Encoding Utf8NoBom = new(encoderShouldEmitUTF8Identifier: false);
+
+    // 造一张和生产侧同规格的自签根（CN 与基本约束都照抄），返回落盘路径和它的 DER。
+    private string WriteRootPem(out byte[] der)
+    {
+        using RSA key = RSA.Create(2048);
+        CertificateRequest request = new(TrustStore.RootCertSubjectName, key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        request.CertificateExtensions.Add(new X509BasicConstraintsExtension(true, false, 0, false));
+
+        using X509Certificate2 root = request.CreateSelfSigned(DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddYears(100));
+        string path = Path.Combine(_root, "Cealing-Root.pem");
+
+        File.WriteAllText(path, root.ExportCertificatePem(), Utf8NoBom);
+
+        der = root.RawData;
+
+        return path;
     }
 
     // keytool 打的指纹带冒号分隔，库里存的就长这样。
