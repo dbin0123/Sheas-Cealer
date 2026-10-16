@@ -46,6 +46,7 @@
     <Compile Include="..\Utils\MihomoDownloader.cs" Link="GuiSource\MihomoDownloader.cs" />
     <Compile Include="..\Utils\MihomoTunRoutes.cs" Link="GuiSource\MihomoTunRoutes.cs" />
     <Compile Include="..\Utils\MihomoConfText.cs" Link="GuiSource\MihomoConfText.cs" />
+    <Compile Include="..\Utils\ConfigFileWatcher.cs" Link="GuiSource\ConfigFileWatcher.cs" />
     <Compile Include="..\Consts\MainConst.cs" Link="GuiSource\MainConst.cs" />
     <Compile Include="..\Consts\MainMultilangConst.Designer.cs" Link="GuiSource\MainMultilangConst.Designer.cs" />
   </ItemGroup>

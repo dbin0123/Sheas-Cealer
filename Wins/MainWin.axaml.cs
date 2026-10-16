@@ -119,10 +119,12 @@ public partial class MainWin : Window
         MihomoButton.AddHandler(Button.PointerPressedEvent, LaunchButton_PointerPressed, handledEventsToo: true);
 
         ProxyTimer.Tick += ProxyTimer_Tick;
-        CealHostWatcher.Changed += CealHostWatcher_Changed;
-        CealHostWatcher.Created += CealHostWatcher_Changed;
-        NginxConfWatcher.Changed += NginxConfWatcher_Changed;
-        MihomoConfWatcher.Changed += MihomoConfWatcher_Changed;
+        // 三个监听都必须走 ConfigFileWatcher.Subscribe：订 Renamed 之外还要 NotifyFilters.FileName，
+        // 少了它 Windows 压根不上报改名。用 vim / sed -i / 部分编辑器「临时文件改名覆盖」存盘时，
+        // 目录里发生的是 Rename 而不是 LastWrite —— 老代码只订 Changed，改了规则一声不响地不生效。
+        ConfigFileWatcher.Subscribe(CealHostWatcher, e => CealHostWatcher_Changed(null!, e));
+        ConfigFileWatcher.Subscribe(NginxConfWatcher, e => NginxConfWatcher_Changed(null!, e));
+        ConfigFileWatcher.Subscribe(MihomoConfWatcher, e => MihomoConfWatcher_Changed(null!, e));
 
         ProxyTimer.Start();
 
@@ -945,6 +947,12 @@ public partial class MainWin : Window
     }
     private async void CealHostWatcher_Changed(object sender, FileSystemEventArgs e)
     {
+        // 改名事件可能带来一个此刻已经不存在的目标（改名走开、或缓冲区溢出时 FullPath 为 null）。
+        // 下面 FileStream 会直接抛，而这个方法是 async void —— 异常逃出去会掀掉消息循环，
+        // 界面表现为「点什么都没反应」。
+        if (e.FullPath is null || !File.Exists(e.FullPath))
+            return;
+
         string cealHostName = MainConst.CealHostPrefixRegex().Replace(Path.GetFileNameWithoutExtension(e.Name!), string.Empty);
 
         try
