@@ -49,6 +49,10 @@ public partial class MainWin : Window
     private readonly FileSystemWatcher MihomoConfWatcher = new(Path.GetDirectoryName(MainConst.MihomoConfPath)!, Path.GetFileName(MainConst.MihomoConfPath)) { EnableRaisingEvents = true, NotifyFilter = NotifyFilters.LastWrite };
     private ProxyController? ProxyController;
 
+    // 规则热重载的重发只做一件事：同一时刻只允许一个 reload 在跑，期间到来的请求合并成最后一次。
+    private readonly SemaphoreSlim ReloadLock = new(1, 1);
+    private bool ReloadRequested;
+
     private readonly SortedDictionary<string, List<(List<(string cealHostIncludeDomain, string cealHostExcludeDomain)> cealHostDomainPairs, string? cealHostSni, string cealHostIp)>?> CealHostRulesDict = [];
     private string CealArgs = string.Empty;
     private NginxConfig? NginxConfs;
@@ -439,8 +443,12 @@ public partial class MainWin : Window
         // 记住 agent 已就绪，否则 MainWin_Closing 不会 shutdown，agent 会泄漏成 root 僵尸进程。
         MainPres.IsAgentReady = true;
 
-        // agent 就绪后重新生成 mihomo 配置（之前因 IsAgentReady=false 被跳过）
-        MihomoConfWatcher_Changed(null!, null!);
+        // agent 就绪后重新生成两份配置（之前都因 IsAgentReady=false 被跳过）。
+        // 必须 await：下面 BuildConfig 直接吃 ComihomoConfs / NginxConfs，异步 void 的话就是赌弹窗够用。
+        // nginx 那份不是摆设 —— 实测首次启动交给 agent 的 nginxConfText 是空的，
+        // 只有等规则监听再跑一遍才填上，走外部 nginx 的引擎就是「起来了但没配置」。
+        await RefreshNginxConfAsync();
+        await RefreshMihomoConfAsync();
 
         // coproxy（mihomo TUN + nginx）依赖外部 mihomo 二进制；没装 mihomo 时自动下载。
         // coproxy 支持通配符 DNS 匹配（hosts 文件不支持），是访问通配符域名的正确方式。
@@ -539,6 +547,10 @@ public partial class MainWin : Window
             MainPres.IsProxyRunning = true;
             MainPres.ProxyEngineName = isCoproxy ? "mihomo" : config.Engine.ToString().ToLowerInvariant();
 
+            // 告诉 controller「当前这套引擎的配置文本从哪取」，规则热重载才重得出和运行时同构的配置。
+            // 存的是委托：NginxConfs / ComihomoConfs 会随规则重算，存字符串就退回旧的坏行为。
+            ProxyController.RunningConfTexts = () => (NginxConfs?.ToString(), isCoproxy ? ComihomoConfs : MihomoConfs);
+
             if (isCoproxy)
             {
                 MainPres.IsConginxRunning = true;
@@ -630,6 +642,10 @@ public partial class MainWin : Window
 
         MainPres.IsAgentReady = true;
 
+        // 和「启动全局伪造」那条按钮同一个坑：agent 就绪前 MihomoConfWatcher 是直接 return 的，
+        // 第一次点这里时 MihomoConfs 还是空，配置就空着交给 agent 了。
+        await RefreshMihomoConfAsync();
+
         if (!MainPres.IsMihomoExist && !MainPres.IsComihomoExist)
         {
             // 尝试自动下载 mihomo
@@ -693,10 +709,13 @@ public partial class MainWin : Window
 
             MainPres.IsProxyRunning = true;
             MainPres.ProxyEngineName = "mihomo";
-            UpdateProxyStatusText();
 
-            MainPres.IsProxyRunning = true;
-            MainPres.ProxyEngineName = "mihomo";
+            // 这条路径取哪份 mihomo 文本，取决于有没有和 nginx 联动 —— 必须和启动时那个表达式一致。
+            ProxyController.RunningConfTexts = () => (null, MainPres.IsConginxRunning
+                ? MainPres.IsComihomoExist ? HostsComihomoConfs : ComihomoConfs
+                : MihomoConfs);
+
+            UpdateProxyStatusText();
         }
         finally
         {
@@ -1039,11 +1058,72 @@ public partial class MainWin : Window
 
             CealArgs = @$"--host-rules=""{hostRules.TrimEnd(',')}"" --host-resolver-rules=""{hostResolverRules.TrimEnd(',')}"" --test-type --ignore-certificate-errors";
 
-            NginxConfWatcher_Changed(null!, null!);
-            MihomoConfWatcher_Changed(null!, null!);
+            // 必须按顺序、且必须 await：NginxConfs / ComihomoConfs 是下面重发配置的输入，
+            // 而它们由这两个刷新方法异步算出。以前这里是两发 async void（不等），
+            // 于是重载拿到的还是上一份文本 —— 新域名照样不生效。
+            try
+            {
+                await RefreshNginxConfAsync();
+                await RefreshMihomoConfAsync();
+                await ReloadRunningProxyAsync();
+            }
+            catch (Exception ex)
+            {
+                // 同样是 async void 的收尾：异常逃出去会掀掉消息循环。
+                // 记进 GUI 错误日志，让「改完规则没反应」至少留下证据。
+                try
+                {
+                    File.AppendAllText(MainConst.GuiErrorLogPath,
+                        $"{DateTime.Now:O} rule reload failed: {ex}{Environment.NewLine}");
+                }
+                catch
+                {
+                }
+            }
         }
     }
-    private async void NginxConfWatcher_Changed(object sender, FileSystemEventArgs e)
+
+    // 规则一改就把新配置推给正在跑的代理。以前 hosts、证书 SAN、config.yaml、cealing-proxy.json
+    // 全都在「点启动全局伪造」那一刻才落盘，热重载只改内存，用户只能停止→再启动一次。
+    private async Task ReloadRunningProxyAsync()
+    {
+        if (ProxyController is null || !MainPres.IsProxyRunning)
+            return;
+
+        // 启动/停止进行中不能插一次 reload：agent 的 start/reload/stop 走同一把串行锁，
+        // 排进去的 reload 会在按钮流程结束后把刚起来的代理再重启一遍。
+        if (MainPres.IsNginxIniting || MainPres.IsCoproxyIniting ||
+            MainPres.IsMihomoIniting || MainPres.IsComihomoIniting || MainPres.IsCoproxyStopping)
+            return;
+
+        // 连续保存规则时只做最后一次：每次 reload 都会重启引擎（TUN 会断一下），
+        // 一次编辑存三遍不该换来三次断网。
+        ReloadRequested = true;
+
+        if (await ReloadLock.WaitAsync(0) == false)
+            return;
+
+        try
+        {
+            while (ReloadRequested)
+            {
+                ReloadRequested = false;
+
+                AgentResponse? response = await ProxyController.ReloadRunningAsync();
+
+                if (response is { Ok: false })
+                    await MessageBoxManager.GetMessageBoxStandard(string.Empty,
+                        $"规则已更新，但代理重载配置失败：{response.Error}{Environment.NewLine}请停止后再启动一次全局伪造。",
+                        ButtonEnum.Ok).ShowWindowDialogAsync(this);
+            }
+        }
+        finally
+        {
+            ReloadLock.Release();
+        }
+    }
+    private void NginxConfWatcher_Changed(object sender, FileSystemEventArgs e) => _ = RefreshNginxConfAsync();
+    private async Task RefreshNginxConfAsync()
     {
         // 配置是拼给 agent 用的，特权在 agent 身上，不在 GUI 身上。
         // 这里以前按「GUI 是不是管理员」拦 Windows：新模型下 GUI 故意不提权，
@@ -1147,7 +1227,8 @@ public partial class MainWin : Window
                     NginxConfs.AddOrUpdate($"http:server[{serverIndex}]:proxy_ssl_name", cealHostSniEffective);
             }
     }
-    private async void MihomoConfWatcher_Changed(object sender, FileSystemEventArgs e)
+    private void MihomoConfWatcher_Changed(object sender, FileSystemEventArgs e) => _ = RefreshMihomoConfAsync();
+    private async Task RefreshMihomoConfAsync()
     {
         // 配置是拼给 agent 用的，特权在 agent 身上，不在 GUI 身上。
         // 这里以前按「GUI 是不是管理员」拦 Windows：新模型下 GUI 故意不提权，

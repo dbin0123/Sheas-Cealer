@@ -67,6 +67,8 @@ open out/publish/Sheas-Cealer-Nix.app
 7. 伪造规则分三份：`Cealing-Host-L.json`（本地，你自己维护）、`Cealing-Host-U.json`（点**更新上游规则**时覆盖）、`Cealing-Host-B.json`（应用自带，每次启动随版本刷新，不要手改，改了也会被覆盖）
 8. 「全局伪造」对**非浏览器程序**的覆盖范围有限，这不是 bug 而是 hosts 的限制：hosts 语法写不出 `*.example.com`，所以每条通配符规则只会落地成主域名和 `www.` 两条记录，其余子域名仍走真实 DNS、不会被伪造。浏览器模式没有这个问题（Chromium 的 `--host-rules` 支持通配）
 9. Java 程序（IDEA 及其插件、Android Studio、Gradle 等）用的是自己的信任库，自动发现会扫常见安装位置和 `JAVA_HOME`；扫不到时在主界面设置行点**切换模式**到 `Java 信任库`，填入 cacerts 文件或 JDK / JBR 目录，多个用 `;` 分隔（填 IDE 安装目录也行，程序会往里找 `jbr`）。装了哪些、哪些没装进 `cealing-agent.log`（窗口里的**查看日志**）
+10. 全局伪造运行中改规则会**当场生效**：hosts、证书 SAN、引擎配置都会按新规则重推给特权代理，不需要停止再启动。保存方式不限（原地写、以及 vim / `sed -i` 这类先写临时文件再改名覆盖的编辑器都行）。注意每次**内容有变化**的重载都会重启一次反代引擎，TUN 会断开一两秒（重复保存同一个内容不会被算作变化）
+11. 极少数**强制在线吊销校验**的客户端会拒绝伪造证书（Windows 上的 curl 报 `CRYPT_E_NO_REVOCATION_CHECK`），因为伪造链不提供 CRL / OCSP 地址。这类客户端加 `--ssl-no-revoke` 即可，浏览器和 Java 程序不受影响
 
 ## 用户协议
 1. [隐私政策](https://thoughts.teambition.com/share/6264eda98adeb10041b92fdb#title=Sheas_Cealer_隐私政策)

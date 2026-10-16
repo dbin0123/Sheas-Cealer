@@ -268,6 +268,14 @@ internal sealed class ProxyController(
             Rules = []
         };
 
+        FillRulesAndSans(config);
+
+        return config;
+    }
+
+    // 规则和证书 SAN（hosts 也从这份 SAN 推）完全由当前规则表决定，重载时整份重算。
+    private void FillRulesAndSans(ProxyConfig config)
+    {
         // rulesProvider() 的每个 Value 是一个 List<tuple>（对应原 MainWin 的 CealHostRulesDict.Values
         // → 内层 foreach），这里必须 SelectMany 摊平，否则会把 List 当成 3 元组去解构，编译不过。
         // rulesProvider 本身非空（和原代码直接访问 CealHostRulesDict.Values 一致）。
@@ -304,8 +312,6 @@ internal sealed class ProxyController(
                 Port = 443
             });
         }
-
-        return config;
     }
 
     // 复刻 Wins/MainWin.axaml.cs:944-945 的拼法：~^exclude$domain$| 多段以 | 结尾
@@ -367,6 +373,16 @@ internal sealed class ProxyController(
 
     internal string? CoproxyMihomoPath { get; set; }
 
+    // 上一次真正交给 agent 的那份配置（start 成功之后才有值）。
+    // 端口、引擎、是否 coproxy、外部二进制路径都是点「启动全局伪造」那一刻定下来的，
+    // 规则热重载不该改它们；要改的只有从规则派生出来的 Rules / CertSans 和两份引擎配置文本。
+    private ProxyConfig? runningConfig;
+
+    // 窗口在启动成功后把「当前这套引擎的配置文本怎么取」交给我们。
+    // 存委托而不是存字符串：规则一变 NginxConfs / ComihomoConfs 会重算，
+    // 存字符串等于把缺陷原地保留 —— 用户还是得停止→再启动一次才看得到新域名。
+    internal Func<(string? nginxConfText, string? mihomoConfText)>? RunningConfTexts { get; set; }
+
     internal async Task<AgentResponse> WriteAndStartAsync(ProxyConfig config)
     {
         await File.WriteAllTextAsync(MainConst.ProxyConfigPath, AgentJson.Serialize(config));
@@ -375,7 +391,70 @@ internal sealed class ProxyController(
 
         // agent 起来后把根证书信任进 macOS 用户域（系统域需要交互授权，后台 root 进程做不了）。
         if (response.Ok)
+        {
+            runningConfig = config;
             UserTrust.Install();
+        }
+
+        return response;
+    }
+
+    // 用「启动时定下来的传输设置 + 此刻的规则表」重出一份配置。
+    // 必须返回新对象：runningConfig 是「上一次真正生效的那份」，重载失败时它还得留着当比对基准，
+    // 原地改会让两份永远相等、后续再也推不出去。
+    internal ProxyConfig RefreshRunningConfig(ProxyConfig running, string? nginxConfText, string? mihomoConfText)
+    {
+        ProxyConfig refreshed = new()
+        {
+            Engine = running.Engine,
+            Coproxy = running.Coproxy,
+            Flashing = running.Flashing,
+            WriteHosts = running.WriteHosts,
+            HttpPort = running.HttpPort,
+            HttpsPort = running.HttpsPort,
+            MixedPort = running.MixedPort,
+            NginxBinaryPath = running.NginxBinaryPath,
+            NginxConfText = nginxConfText,
+            MihomoBinaryPath = running.MihomoBinaryPath,
+            MihomoConfText = mihomoConfText,
+            JavaTrustPaths = [.. running.JavaTrustPaths],
+            CertSans = [],
+            Rules = []
+        };
+
+        FillRulesAndSans(refreshed);
+
+        return refreshed;
+    }
+
+    // agent 重载时重读的就是 cealing-proxy.json，所以「序列化后一模一样」正是「没什么可重载」的定义：
+    // 判据用交给 agent 的字节本身，不会漏掉任何会影响行为的字段。
+    internal static bool ConfigsEqual(ProxyConfig left, ProxyConfig right) =>
+        string.Equals(AgentJson.Serialize(left), AgentJson.Serialize(right), StringComparison.Ordinal);
+
+    // 规则/配置热重载后推给正在运行的代理。
+    // 返回 null 表示「不需要打扰 agent」—— 没在跑，或者内容其实没变。
+    // 后者是硬需求：Windows 的 FileSystemWatcher 一次保存会报 2~3 个事件，
+    // 而 reload 在 agent 那边等于把引擎整个重启（TUN 断一下、根证书重新导入、Java 信任库重新扫），
+    // 照单全收就变成「存一次、断十几秒」。
+    internal async Task<AgentResponse?> ReloadRunningAsync()
+    {
+        ProxyConfig? applied = runningConfig;
+
+        if (applied is null || RunningConfTexts is null)
+            return null;
+
+        (string? nginxConfText, string? mihomoConfText) = RunningConfTexts();
+        ProxyConfig candidate = RefreshRunningConfig(applied, nginxConfText, mihomoConfText);
+
+        if (ConfigsEqual(applied, candidate))
+            return null;
+
+        AgentResponse response = await ReloadAsync(candidate);
+
+        // 只在 agent 认了这份配置之后才把它当成新的基准，否则下一次事件还得重试。
+        if (response.Ok)
+            runningConfig = candidate;
 
         return response;
     }
@@ -389,6 +468,9 @@ internal sealed class ProxyController(
 
     internal async Task<AgentResponse> StopAsync()
     {
+        runningConfig = null;
+        RunningConfTexts = null;
+
         // 用户域信任库只能由 GUI 自己清（macOS 登录钥匙串不让 root 后台进程动），
         // 而且必须排在协议调用**之前**：任何一步等待被丢弃时，删除都已经发生过了。
         UserTrust.Remove();
