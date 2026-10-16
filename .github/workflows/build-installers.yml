@@ -410,6 +410,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Sheas-Cealer-Nix-${{ matrix.rid }}
+          # artifact 只是把包从 build 递给 release 这一个 job 的中间物，落到 Release 资产后就没用了。
+          # 不写这行就是默认 90 天：一轮 6 个平台约 600MB，几次版本就能把账号的 Actions 存储配额撑爆，
+          # 表现是 6 个 job 全都构建成功、只有最后上传红掉，而 release job 因为 needs: build 根本没跑
+          # —— 于是那个 tag 一个包都没出，看起来像发版失败。2026-10-16 就是这么撞的（97 个 / 9.47GB）。
+          retention-days: 3
           path: |
             Sheas-Cealer-Nix-Setup-${{ steps.version.outputs.version }}-${{ matrix.rid }}.exe
             Sheas-Cealer-Nix-${{ steps.version.outputs.version }}-${{ matrix.rid }}.dmg
